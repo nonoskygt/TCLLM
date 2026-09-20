@@ -25,7 +25,7 @@ const DEFAULTS = {
     port: 8932,
     host: '127.0.0.1',
     allowedHosts: [],            // extra hosts para --allowed-hosts (además de host:port)
-    browser: 'chrome',           // chrome | msedge | brave | chromium | firefox | webkit (ver src/browsers.js)
+    browser: 'firefox',          // por defecto Firefox (build de Playwright); tambien chrome | msedge | brave | chromium | webkit (ver src/browsers.js)
     executablePath: '',          // ruta a un ejecutable Chromium alternativo (Vivaldi, Opera...) o build propia
     isolated: true,
     headless: false,

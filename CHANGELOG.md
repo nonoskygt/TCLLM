@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.1 — 2026-09-20
+
+- **Firefox es el navegador por defecto.** El instalador descarga la build de Firefox de Playwright (~100 MB) durante la instalación
+  (`-NoFirefox` para omitirlo); si no puede (sin red), usa Chrome o Edge y lo avisa. `pickDefault()` prefiere Firefox.
+- El instalador espera hasta 60 s a que TCLLM responda (antes 30 s).
+
 ## 0.2.0 — 2026-09-20
 
 - **Navegadores**: Playwright funciona con Chrome, Edge, **Brave** (Chromium del sistema) y con las builds propias de Playwright de **Firefox**, Chromium y WebKit.

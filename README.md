@@ -29,8 +29,9 @@ Descarga desde [Releases](https://github.com/nonoskygt/TCLLM/releases/latest). N
   (o `powershell -ExecutionPolicy Bypass -File scripts\install.ps1`).
 
 El instalador copia TCLLM a `%LOCALAPPDATA%\TCLLM`, crea `%USERPROFILE%\.tcllm\config.json` con una API key,
-registra la tarea programada `TCLLM` (arranca oculto al iniciar sesión) y la lanza. Si falta VirtualBox lo instala con
-winget (pide UAC); si falta Chrome usa Edge. Todo por usuario, sin admin salvo VirtualBox.
+registra la tarea programada `TCLLM` (arranca oculto al iniciar sesión) y la lanza. Descarga la build de **Firefox** de Playwright
+(navegador por defecto; `-NoFirefox` para omitirlo y usar Chrome/Edge). Si falta VirtualBox lo instala con winget (pide UAC).
+Todo por usuario, sin admin salvo VirtualBox.
 
 Después:
 1. Abre `http://127.0.0.1:7777/` e introduce la API key (`tcllm apikey` en una terminal nueva).
@@ -58,12 +59,12 @@ Desinstalar: `%LOCALAPPDATA%\TCLLM\scripts\uninstall.ps1` (`-Purge` borra tambi�
   "vms": {
     "MiVM": { "user": "<usuario del guest>", "password": "<contraseña>", "sshPort": 2222, "sshKey": "C:\\Users\\<tú>\\.ssh\\id_ed25519" }
   },
-  "playwright": { "enabled": true, "port": 8932, "browser": "chrome", "executablePath": "", "isolated": true, "headless": false, "storageState": "", "freeFileDialogs": false },
+  "playwright": { "enabled": true, "port": 8932, "browser": "firefox", "executablePath": "", "isolated": true, "headless": false, "storageState": "", "freeFileDialogs": false },
   "monitor": { "intervalMs": 10000 },
   "watchdog": { "enabled": true }
 }
 ```
-`playwright.browser`: `chrome | msedge | brave | chromium | firefox | webkit`.
+`playwright.browser`: `firefox` (por defecto) `| chrome | msedge | brave | chromium | webkit`.
 `host: "0.0.0.0"` expone API/MCP/panel a la red (protegido solo por la API key; pon TLS delante si sale de tu LAN).
 Si el puerto de Playwright está ocupado por otro programa, TCLLM usa el siguiente libre; si ya hay un Playwright MCP
 escuchando ahí, lo adopta sin relanzarlo.
@@ -71,8 +72,8 @@ escuchando ahí, lo adopta sin relanzarlo.
 ## Detalles que importan
 - **VirtualBox sobre Hyper-V (NEM)**: si el host tiene Hyper-V/WSL2/Docker, VirtualBox va lento y **el reinicio de Windows dentro
   de la VM se cuelga**. `vm_start`/`vm_restart` llevan un watchdog (pantalla congelada + IF=0 en todas las vCPU + RIP estático → reset).
-- **Navegadores**: Chrome, Edge y Brave (los instalados en el sistema) y las builds propias de Playwright de Firefox, Chromium y
-  WebKit (se descargan desde el panel o con `browser_install`). Se cambia en caliente desde el panel (Navegador), por MCP
+- **Navegadores**: Firefox por defecto (build propia de Playwright, instalada por el instalador); también Chrome, Edge y Brave (los
+  instalados en el sistema) y las builds de Playwright de Chromium y WebKit (se descargan desde el panel o con `browser_install`). Se cambia en caliente desde el panel (Navegador), por MCP
   (`browser_use`) o por API (`POST /api/browser/use`). Playwright no puede manejar el Firefox normal: usa su build con parches.
   Contexto aislado por cliente MCP (`--isolated`); `storageState` inyecta logins en cada contexto. `freeFileDialogs` deja usar el
   diálogo de archivos nativo a un humano.

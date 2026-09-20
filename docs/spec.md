@@ -47,7 +47,7 @@ Playwright MCP compartido entre agentes.
 
 ## Empaquetado / instalación
 - `scripts/install.ps1`: copia a `%LOCALAPPDATA%\TCLLM`, Node incluido en el paquete (o winget si falta y hay winget),
-  VirtualBox con winget si falta (opcional), navegador Chrome si existe o Edge, config inicial con API key, tarea programada
+  VirtualBox con winget si falta (opcional), Firefox (build de Playwright) como navegador por defecto con fallback a Chrome/Edge, config inicial con API key, tarea programada
   `TCLLM` al iniciar sesión (oculta: `wscript` + `start-hidden.vbs`; `conhost --headless` si no hay VBScript), PATH de usuario.
 - `scripts/pack.ps1` → `dist/TCLLM-<ver>-win64.zip` (código + node_modules + runtime Node) y `TCLLM-<ver>-setup.exe`:
   stub C# (`scripts/sfx/Setup.cs`) compilado con el `csc.exe` de .NET Framework que trae Windows, con el ZIP adjunto tras el

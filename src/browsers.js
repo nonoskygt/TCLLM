@@ -76,7 +76,7 @@ export function launchArgs(id, { executablePath } = {}) {
 }
 
 /** Primer navegador instalado por orden de preferencia. */
-export function pickDefault(pref = ['chrome', 'msedge', 'brave', 'chromium', 'firefox']) {
+export function pickDefault(pref = ['firefox', 'chrome', 'msedge', 'brave', 'chromium']) {
   const d = detect();
   return pref.find(id => d[id]?.installed) || 'msedge';
 }

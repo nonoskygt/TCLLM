@@ -1,11 +1,12 @@
 ﻿# TCLLM - instalador para Windows (por usuario, sin admin salvo VirtualBox).
 # Uso:  powershell -ExecutionPolicy Bypass -File install.ps1 [-InstallDir C:\ruta] [-Port 7777] [-BindHost 127.0.0.1]
-#                 [-NoVirtualBox] [-NoStart] [-Agents claude,codex,opencode,qwen,gemini,cursor,windsurf]
+#                 [-NoVirtualBox] [-NoFirefox] [-NoStart] [-Agents claude,codex,opencode,qwen,gemini,cursor,windsurf]
 param(
     [string]$InstallDir = "$env:LOCALAPPDATA\TCLLM",
     [int]$Port = 7777,
     [string]$BindHost = '127.0.0.1',
     [switch]$NoVirtualBox,
+    [switch]$NoFirefox,
     [switch]$NoStart,
     [string]$Agents = ''
 )
@@ -75,9 +76,18 @@ if (-not (Test-Path -LiteralPath $vbm)) {
     }
 } else { Write-Host "VirtualBox: $(& $vbm --version)" }
 
-# 5. Navegador para Playwright: Chrome si existe, si no Edge (siempre presente en Windows 10/11)
-$browser = if ((Test-Path -LiteralPath "$env:ProgramFiles\Google\Chrome\Application\chrome.exe") -or (Test-Path -LiteralPath "${env:ProgramFiles(x86)}\Google\Chrome\Application\chrome.exe") -or (Test-Path -LiteralPath "$env:LOCALAPPDATA\Google\Chrome\Application\chrome.exe")) { 'chrome' } else { 'msedge' }   # TCLLM lo reconcilia al arrancar si no existe
-Write-Host "Navegador para Playwright: $browser"
+# 5. Navegador para Playwright: Firefox (build propia de Playwright, se descarga ~100 MB) por defecto; si no se puede, Chrome o Edge
+$fallback = if ((Test-Path -LiteralPath "$env:ProgramFiles\Google\Chrome\Application\chrome.exe") -or (Test-Path -LiteralPath "${env:ProgramFiles(x86)}\Google\Chrome\Application\chrome.exe") -or (Test-Path -LiteralPath "$env:LOCALAPPDATA\Google\Chrome\Application\chrome.exe")) { 'chrome' } else { 'msedge' }
+$browser = $fallback
+if ($NoFirefox) { Write-Host "Firefox omitido (-NoFirefox); navegador: $browser" }
+else {
+    Write-Host "Instalando Firefox (build de Playwright, ~100 MB)..."
+    & $node "$InstallDir\node_modules\@playwright\mcp\cli.js" install-browser firefox --no-progress --no-remove 2>&1 | Select-Object -Last 2 | ForEach-Object { "  $_" }
+    $rev = ((Get-Content -LiteralPath "$InstallDir\node_modules\playwright-core\browsers.json" -Raw | ConvertFrom-Json).browsers | Where-Object { $_.name -eq 'firefox' }).revision
+    $pwDir = if ($env:PLAYWRIGHT_BROWSERS_PATH -and $env:PLAYWRIGHT_BROWSERS_PATH -ne '0') { $env:PLAYWRIGHT_BROWSERS_PATH } else { "$env:LOCALAPPDATA\ms-playwright" }
+    if (Test-Path -LiteralPath "$pwDir\firefox-$rev\INSTALLATION_COMPLETE") { $browser = 'firefox'; Write-Host "Navegador para Playwright: firefox (build $rev)" }
+    else { Write-Host "No se pudo instalar Firefox (sin red?); navegador: $browser. Puedes instalarlo luego desde el panel > Navegador." -ForegroundColor Yellow }
+}
 
 # 6. Config (%USERPROFILE%\.tcllm\config.json): se crea si no existe; en reinstalaciones se respeta lo que haya
 $home_ = "$env:USERPROFILE\.tcllm"; New-Item -ItemType Directory -Force $home_, "$home_\logs" | Out-Null
@@ -88,6 +98,7 @@ if (-not $cfg.server.apiKey) { $bytes = New-Object byte[] 24; [Security.Cryptogr
 if (-not $cfg.server.port -or $PSBoundParameters.ContainsKey('Port')) { $cfg.server | Add-Member -Force -NotePropertyName port -NotePropertyValue $Port }
 if (-not $cfg.server.host -or $PSBoundParameters.ContainsKey('BindHost')) { $cfg.server | Add-Member -Force -NotePropertyName host -NotePropertyValue $BindHost }
 if (-not $cfg.playwright) { $cfg | Add-Member -NotePropertyName playwright -NotePropertyValue ([pscustomobject]@{ enabled = $true; port = 8932; browser = $browser; isolated = $true }) }
+elseif ($cfg.playwright.browser -eq 'firefox' -and $browser -ne 'firefox' -and -not $NoFirefox) { Write-Host "La config pedia firefox pero no esta instalado; TCLLM elegira otro al arrancar." -ForegroundColor Yellow }
 if (-not $cfg.vms) { $cfg | Add-Member -NotePropertyName vms -NotePropertyValue ([pscustomobject]@{}) }
 [IO.File]::WriteAllText($cfgFile, ($cfg | ConvertTo-Json -Depth 8), (New-Object Text.UTF8Encoding $false))   # UTF-8 sin BOM
 $apiKey = $cfg.server.apiKey; $Port = [int]$cfg.server.port
@@ -110,11 +121,11 @@ Write-Host "Tarea programada 'TCLLM' registrada (arranca al iniciar sesion)."
 # 8. Arrancar ahora
 if (-not $NoStart) {
     Start-ScheduledTask -TaskName 'TCLLM'
-    $deadline = (Get-Date).AddSeconds(30); $ok = $false
+    $deadline = (Get-Date).AddSeconds(60); $ok = $false
     while ((Get-Date) -lt $deadline) { try { $r = Invoke-RestMethod "http://127.0.0.1:$Port/api/health" -TimeoutSec 2; if ($r.ok) { $ok = $true; break } } catch {}; Start-Sleep -Milliseconds 700 }
     if ($ok) { Write-Host "TCLLM responde en http://127.0.0.1:$Port" -ForegroundColor Green }
     else {
-        Write-Host "TCLLM no respondio en 30 s. Revisa $home_\logs\stdout.log, tcllm.log y crash.log:" -ForegroundColor Yellow
+        Write-Host "TCLLM no respondio en 60 s (puede seguir arrancando). Revisa $home_\logs\stdout.log, tcllm.log y crash.log:" -ForegroundColor Yellow
         foreach ($f in 'stdout.log','crash.log') { if (Test-Path -LiteralPath "$home_\logs\$f") { Get-Content -LiteralPath "$home_\logs\$f" -Tail 5 | ForEach-Object { "  $f> $_" } } }
     }
 }
