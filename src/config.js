@@ -18,7 +18,7 @@ const DEFAULTS = {
   },
   // VMs conocidas (credenciales del guest para guestcontrol/SSH). Las demás se listan pero sin control interno.
   vms: {
-    // "Win11": { user: "claude", password: "...", sshPort: 2222, sshKey: "C:\\...\\id_ed25519", sharedFolder: "D:\\VMs\\shared" }
+    // "MiVM": { user: "<usuario del guest>", password: "<contrasena>", sshPort: 2222, sshKey: "C:\\Users\\<tu>\\.ssh\\id_ed25519", sharedFolder: "C:\\compartida" }
   },
   playwright: {
     enabled: true,

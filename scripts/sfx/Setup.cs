@@ -7,7 +7,9 @@ using System.Text;
 
 static class Setup {
     const string Marker = "TCLLMZIP!";
+    static void Pause() { if (!Console.IsInputRedirected) { Console.WriteLine("Pulsa una tecla para cerrar."); Console.ReadKey(); } }
     static int Main(string[] args) {
+        string dir = Path.Combine(Path.GetTempPath(), "TCLLM-setup");
         try {
             string self = Process.GetCurrentProcess().MainModule.FileName;
             byte[] data = File.ReadAllBytes(self);
@@ -17,8 +19,7 @@ static class Setup {
                 bool ok = true; for (int j = 0; j < mark.Length; j++) if (data[i + j] != mark[j]) { ok = false; break; }
                 if (ok) { at = i; break; }
             }
-            if (at < 0) { Console.Error.WriteLine("No hay paquete adjunto."); return 2; }
-            string dir = Path.Combine(Path.GetTempPath(), "TCLLM-setup");
+            if (at < 0) { Console.Error.WriteLine("No hay paquete adjunto."); Pause(); return 2; }
             if (Directory.Exists(dir)) Directory.Delete(dir, true);
             Directory.CreateDirectory(dir);
             string zip = Path.Combine(dir, "package.zip");
@@ -26,8 +27,14 @@ static class Setup {
             Console.WriteLine("Extrayendo TCLLM a " + dir + " ...");
             ZipFile.ExtractToDirectory(zip, dir);
             File.Delete(zip);
-            var psi = new ProcessStartInfo("powershell.exe", "-NoProfile -ExecutionPolicy Bypass -File \"" + Path.Combine(dir, "scripts", "install.ps1") + "\" " + string.Join(" ", args)) { UseShellExecute = false };
-            using (var p = Process.Start(psi)) { p.WaitForExit(); Console.WriteLine("Pulsa una tecla para cerrar."); Console.ReadKey(); return p.ExitCode; }
-        } catch (Exception e) { Console.Error.WriteLine("Error: " + e.Message); Console.ReadKey(); return 1; }
+            // Los argumentos se reenvian entrecomillados (rutas con espacios: -InstallDir "D:\Mis Apps\TCLLM")
+            string fwd = string.Join(" ", Array.ConvertAll(args, a => "\"" + a.Replace("\"", "\\\"") + "\""));
+            var psi = new ProcessStartInfo("powershell.exe", "-NoProfile -ExecutionPolicy Bypass -File \"" + Path.Combine(dir, "scripts", "install.ps1") + "\" " + fwd) { UseShellExecute = false };
+            int rc;
+            using (var p = Process.Start(psi)) { p.WaitForExit(); rc = p.ExitCode; }
+            try { Directory.Delete(dir, true); } catch { }
+            Pause();
+            return rc;
+        } catch (Exception e) { Console.Error.WriteLine("Error: " + e.Message); Pause(); return 1; }
     }
 }

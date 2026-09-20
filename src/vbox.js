@@ -19,8 +19,10 @@ export function run(args, { timeout = 120000, allowFail = false } = {}) {
   return new Promise((resolve, reject) => {
     execFile(vbm(), args, { timeout, maxBuffer: 64 * 1024 * 1024, windowsHide: true }, (err, stdout, stderr) => {
       if (err && !allowFail) {
-        const m = (stderr || '').split(/\r?\n/).find(l => l.includes('error:')) || err.message;
-        return reject(new VBoxError(m.replace(/^VBoxManage\.exe: error: /, '').trim(), { code: err.code, stderr }));
+        let m = (stderr || '').split(/\r?\n/).find(l => l.includes('error:')) || err.message;
+        const pi = args.indexOf('--password');            // nunca filtrar la contraseña del guest en errores/logs
+        if (pi >= 0 && args[pi + 1]) m = m.split(args[pi + 1]).join('***');
+        return reject(new VBoxError(m.replace(/^VBoxManage\.exe: error: /, '').trim(), { code: err.code, stderr: pi >= 0 ? undefined : stderr }));
       }
       resolve(stdout);
     });

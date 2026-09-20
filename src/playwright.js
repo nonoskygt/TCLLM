@@ -6,11 +6,13 @@ import path from 'node:path';
 import fs from 'node:fs';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
+import { createRequire } from 'node:module';
 import { PKG_ROOT, getConfig } from './config.js';
 import { log } from './log.js';
 import * as windows from './windows.js';
 
 const L = log('playwright');
+const VERSION = createRequire(import.meta.url)('../package.json').version;
 const CLI = path.join(PKG_ROOT, 'node_modules', '@playwright', 'mcp', 'cli.js');
 const INIT_PAGE = path.join(PKG_ROOT, 'ps', 'init-page.cjs');
 
@@ -96,7 +98,7 @@ class PlaywrightSupervisor {
   async getClient() {
     if (this.client) return this.client;
     if (!await this.tcpCheck()) throw new Error(`Playwright MCP no responde en ${this.url}`);
-    const client = new Client({ name: 'tcllm', version: '0.1.0' });
+    const client = new Client({ name: 'tcllm', version: VERSION });
     const transport = new StreamableHTTPClientTransport(new URL(this.url));
     await client.connect(transport);
     client.onclose = () => { if (this.client === client) { this.client = null; this.tools = null; } };

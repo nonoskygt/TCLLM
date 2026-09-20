@@ -4,9 +4,13 @@
   "description": "TCLLM - Total Control for LLMs: remote control of VirtualBox VMs and Playwright browsers for any LLM (REST API, MCP, admin panel, service monitor).",
   "type": "module",
   "license": "MIT",
-  "bin": { "tcllm": "bin/tcllm.js" },
+  "bin": {
+    "tcllm": "bin/tcllm.js"
+  },
   "main": "src/server.js",
-  "engines": { "node": ">=20" },
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
     "start": "node bin/tcllm.js start",
     "test": "node test/smoke.mjs",
@@ -18,5 +22,47 @@
     "express": "^5.2.1",
     "ws": "^8.18.0",
     "zod": "^3.25.0"
-  }
+  },
+  "author": {
+    "name": "Danilo Estuardo Gonzalez Rizzo",
+    "email": "nonosky@gmail.com",
+    "url": "https://github.com/nonoskygt"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/nonoskygt/TCLLM.git"
+  },
+  "homepage": "https://github.com/nonoskygt/TCLLM#readme",
+  "bugs": {
+    "url": "https://github.com/nonoskygt/TCLLM/issues"
+  },
+  "keywords": [
+    "mcp",
+    "llm",
+    "agents",
+    "virtualbox",
+    "playwright",
+    "remote-control",
+    "automation",
+    "windows",
+    "openai-tools",
+    "claude-code",
+    "codex",
+    "opencode"
+  ],
+  "files": [
+    "bin",
+    "src",
+    "ps",
+    "panel",
+    "scripts",
+    "skills",
+    "docs",
+    "tcllm.cmd",
+    "README.md",
+    "LICENSE"
+  ],
+  "os": [
+    "win32"
+  ]
 }
