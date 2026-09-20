@@ -63,6 +63,10 @@ export function apiRouter() {
   r.post('/browser/restart', wrap(() => playwright.restart()));
   r.post('/browser/show', wrap(() => callTool('browser_windows_show')));
   r.post('/browser/hide', wrap(() => callTool('browser_windows_hide')));
+  r.get('/browser/browsers', wrap(() => callTool('browser_list')));
+  r.post('/browser/use', wrap((req) => callTool('browser_use', req.body || {})));
+  r.post('/browser/install', wrap(async (req) => { const b = await import('./browsers.js'); const id = req.body?.browser; b.install(id).catch(() => {}); await new Promise(r => setTimeout(r, 500)); return { browser: id, ...(b.installStatus(id) || { status: 'idle' }) }; }));
+  r.get('/browser/install/:browser', wrap(async (req) => { const { installStatus } = await import('./browsers.js'); return installStatus(req.params.browser) || { status: 'idle' }; }));
   r.get('/browser/tools', wrap(() => browserTools()));
   r.post('/browser/tools/:name', wrap(async (req) => { const n = req.params.name.startsWith('browser_') ? req.params.name : 'browser_' + req.params.name; return callTool(n, req.body || {}); }));
 

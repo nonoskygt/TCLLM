@@ -10,6 +10,8 @@ import { createRequire } from 'node:module';
 import { PKG_ROOT, getConfig } from './config.js';
 import { log } from './log.js';
 import * as windows from './windows.js';
+import * as browsers from './browsers.js';
+import { saveConfig } from './config.js';
 
 const L = log('playwright');
 const VERSION = createRequire(import.meta.url)('../package.json').version;
@@ -26,7 +28,7 @@ class PlaywrightSupervisor {
 
   args() {
     const c = this.cfg;
-    const a = ['--port', String(this.port), '--host', c.host, '--browser', c.browser];
+    const a = ['--port', String(this.port), '--host', c.host, ...browsers.launchArgs(c.browser, { executablePath: c.executablePath })];
     const hosts = [`localhost:${this.port}`, `127.0.0.1:${this.port}`, ...(c.allowedHosts || [])];
     a.push('--allowed-hosts', hosts.join(','));
     if (c.isolated) a.push('--isolated');
@@ -74,6 +76,17 @@ class PlaywrightSupervisor {
     if (!this.proc) return;
     const p = this.proc;
     await new Promise((resolve) => { p.once('exit', resolve); p.kill(); setTimeout(() => { try { p.kill('SIGKILL'); } catch {} resolve(); }, 5000); });
+  }
+
+  /** Cambia el navegador (chrome|msedge|brave|chromium|firefox|webkit), lo guarda en config y relanza el Playwright MCP. */
+  async useBrowser(id, { executablePath } = {}) {
+    const d = browsers.detect();
+    if (!browsers.CATALOG[id]) throw new Error(`Navegador desconocido: ${id}. Opciones: ${Object.keys(browsers.CATALOG).join(', ')}`);
+    if (!d[id].installed && !executablePath) throw new Error(`${d[id].title} no está instalado.${d[id].installable ? ' Instálalo con browser_install / POST /api/browser/install.' : ''}`);
+    const cfg = getConfig(); cfg.playwright.browser = id; cfg.playwright.executablePath = executablePath || ''; saveConfig(cfg);
+    L.info(`cambiando navegador a ${id}`);
+    if (this.adopted) { this.adopted = false; return { browser: id, note: 'el Playwright MCP adoptado no lo gestiona TCLLM; el cambio aplicará cuando TCLLM lo lance', status: await this.status() }; }
+    return { browser: id, status: await this.restart() };
   }
 
   async restart() { await this.stop(); this.restarts = 0; await this.start(); await this.waitListening(30000); return this.status(); }
@@ -126,7 +139,7 @@ class PlaywrightSupervisor {
     const browserWindows = listening ? (await windows.list().catch(() => [])).filter(w => w.kind === 'browser') : [];
     return {
       enabled: this.cfg.enabled, running: !!this.proc, adopted: !!this.adopted, pid: this.proc?.pid || null, listening, mcpOk, toolCount,
-      url: this.url, port: this.port, configuredPort: this.cfg.port, browser: this.cfg.browser, isolated: this.cfg.isolated, restarts: this.restarts,
+      url: this.url, port: this.port, configuredPort: this.cfg.port, browser: this.cfg.browser, browserTitle: browsers.CATALOG[this.cfg.browser]?.title || this.cfg.browser, isolated: this.cfg.isolated, restarts: this.restarts,
       uptimeMs: this.startedAt && this.proc ? Date.now() - this.startedAt : 0, lastExit: this.lastExit,
       windows: browserWindows.map(w => ({ hwnd: w.hwnd, title: w.title, visible: w.visible })),
     };

@@ -7,6 +7,7 @@ import * as windows from './windows.js';
 import { playwright } from './playwright.js';
 import { bridge } from './bridge.js';
 import { services } from './services.js';
+import * as browsers from './browsers.js';
 
 const S = (properties, required = []) => ({ type: 'object', properties, required, additionalProperties: false });
 const VM = { type: 'string', description: 'Nombre de la VM en VirtualBox (p.ej. "Win11")' };
@@ -46,6 +47,10 @@ export const tools = [
   { name: 'windows_list', description: 'Lista las ventanas gestionables del host: las de las VMs (VirtualBoxVM) y las del navegador de Playwright, con su hwnd y visibilidad.', inputSchema: S({}), handler: () => windows.list() },
   { name: 'window_show', description: 'Muestra (y trae al frente) una ventana por hwnd.', inputSchema: S({ hwnd: STR('hwnd de windows_list') }, ['hwnd']), handler: ({ hwnd }) => windows.show(hwnd) },
   { name: 'window_hide', description: 'Oculta una ventana por hwnd (el proceso sigue).', inputSchema: S({ hwnd: STR('hwnd de windows_list') }, ['hwnd']), handler: ({ hwnd }) => windows.hide(hwnd) },
+  // ---------- Navegadores ----------
+  { name: 'browser_list', description: 'Navegadores disponibles para Playwright (Chrome, Edge, Brave, Chromium, Firefox, WebKit): cuáles están instalados y cuál está activo.', inputSchema: S({}), handler: async () => ({ active: playwright.cfg.browser, browsers: Object.values(browsers.detect()), playwright: await playwright.status() }) },
+  { name: 'browser_use', description: 'Cambia el navegador que controla Playwright (se guarda en config y se relanza el Playwright MCP; las pestañas abiertas se pierden). Firefox/Chromium/WebKit deben estar instalados (browser_install).', inputSchema: S({ browser: { type: 'string', enum: Object.keys(browsers.CATALOG), description: 'chrome | msedge | brave | chromium | firefox | webkit' }, executablePath: STR('Ruta a un ejecutable Chromium alternativo (opcional)') }, ['browser']), handler: ({ browser, executablePath }) => playwright.useBrowser(browser, { executablePath }) },
+  { name: 'browser_install', description: 'Descarga e instala una build de Playwright (chromium, firefox o webkit; 100-200 MB). Chrome/Edge/Brave se instalan desde su web.', inputSchema: S({ browser: { type: 'string', enum: ['chromium', 'firefox', 'webkit'] } }, ['browser']), handler: async ({ browser }) => ({ installed: await browsers.install(browser), status: browsers.installStatus(browser) }) },
   { name: 'browser_windows_show', description: 'Muestra las ventanas del navegador controlado por Playwright.', inputSchema: S({}), handler: () => windows.showBrowser() },
   { name: 'browser_windows_hide', description: 'Oculta las ventanas del navegador controlado por Playwright (sigue funcionando).', inputSchema: S({}), handler: () => windows.hideBrowser() },
 

@@ -10,7 +10,7 @@ const hiddenByUs = new Map(); // hwnd -> {kind, title}
 let browserOwnerPid = null;   // pid del Playwright MCP que supervisamos (lo fija playwright.js)
 export function setBrowserOwner(pid) { browserOwnerPid = pid; }
 
-const BROWSER_PROCS = ['chrome.exe', 'msedge.exe', 'chromium.exe', 'firefox.exe'];
+const BROWSER_PROCS = ['chrome.exe', 'msedge.exe', 'chromium.exe', 'brave.exe', 'firefox.exe', 'Playwright.exe', 'MiniBrowser.exe'];
 
 /** PIDs de navegadores: { ours: Set (hijos de nuestro Playwright MCP), others: Set (otros Playwright, p.ej. otro servicio) } */
 export async function browserPids(ownerPid) {
@@ -18,7 +18,7 @@ export async function browserPids(ownerPid) {
   const ours = new Set(), others = new Set();
   const byPid = new Map(procs.map(p => [p.pid, p]));
   for (const p of procs) {
-    if (!/--remote-debugging-pipe|playwright/i.test(p.cmd || '')) continue;
+    if (!/--remote-debugging-pipe|playwright|-juggler-pipe/i.test(p.cmd || '')) continue;
     // ¿desciende de nuestro proceso? (chrome hijo de node; los renderers son hijos del chrome principal)
     let q = p, hops = 0, mine = false;
     while (q && hops++ < 6) { if (q.ppid === ownerPid) { mine = true; break; } q = byPid.get(q.ppid); }

@@ -30,6 +30,7 @@ Playwright MCP compartido entre agentes.
 | `input.js` | Ratón absoluto (COM `IMouse`), teclado (scancodes), `paste` vía portapapeles compartido. |
 | `windows.js` | Enumerar/mostrar/ocultar ventanas (Win32 ShowWindow) de VMs (VirtualBoxVM.exe) y del navegador de nuestro Playwright (por árbol de procesos). Attach GUI a VM headless (`VirtualBoxVM --separate --startvm`). |
 | `watchdog.js` | Cuelgue de reinicio bajo Hyper-V/NEM: pantalla congelada + IF=0 en todas las vCPU + RIP estático → reset. |
+| `browsers.js` | Catálogo de navegadores (Chrome, Edge, Brave, Chromium, Firefox, WebKit): detección, argumentos de lanzamiento, instalación de builds de Playwright. |
 | `playwright.js` | Supervisor del Playwright MCP (spawn, restart, salud TCP+MCP, adopción, puerto libre), cliente MCP para el proxy. |
 | `services.js` | Monitor: tcllm, VirtualBox, cada VM (estado, GA, sshd), Playwright MCP, host (CPU/RAM/disco). Historial y eventos. Relanza Playwright si desaparece. |
 | `mcp.js` | Servidor MCP `tcllm` (low-level Server: tools/list y tools/call sobre el registro + proxy). Sesiones Streamable HTTP y stdio. |

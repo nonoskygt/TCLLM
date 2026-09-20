@@ -123,8 +123,28 @@ pageLoaders.browser = async () => {
   $('#browser-cards').innerHTML = `<div class="card"><h4>Estado</h4><div class="big">${b.listening ? (b.mcpOk ? 'activo' : 'escuchando') : b.enabled ? 'arrancando…' : 'deshabilitado'}</div><div class="muted">pid ${b.pid || '-'} · ${fmtMs(b.uptimeMs)} · reinicios ${b.restarts}</div></div>
     <div class="card"><h4>Endpoint MCP (directo)</h4><div class="big" style="font-size:14px">${esc(b.url)}</div><div class="muted">navegador ${esc(b.browser)} · ${b.isolated ? 'aislado (contexto por cliente)' : 'perfil compartido'} · ${b.toolCount ?? '?'} tools</div></div>
     <div class="card"><h4>Ventanas</h4>${(b.windows || []).map(w => `<div class="row between"><span class="t">${esc(w.title)}</span><span class="tag ${w.visible ? 'ok' : ''}">${w.visible ? 'visible' : 'oculta'}</span></div>`).join('') || '<div class="muted">sin ventanas (se abren al navegar)</div>'}</div>`;
+  await renderBrowsers();
   const tools = await api('/browser/tools');
   $('#br-tools').innerHTML = tools.map(t => `<div class="item"><span class="t"><b>${esc(t.name)}</b> · ${esc(t.description)}</span></div>`).join('');
+};
+async function renderBrowsers() {
+  const d = await api('/browser/browsers');
+  $('#br-browsers').innerHTML = d.browsers.map(b => {
+    const active = b.id === d.active;
+    const st = installing[b.id];
+    return `<div class="card"><div class="row between"><h4>${esc(b.title)}</h4><span class="tag ${active ? 'ok' : b.installed ? '' : 'warn'}">${active ? 'activo' : b.installed ? 'instalado' : 'no instalado'}</span></div>
+      <div class="muted">${esc(b.path || (b.installable ? 'build de Playwright ' + esc(b.revision || '') : 'no encontrado en el sistema'))}${b.note ? '<br>' + esc(b.note) : ''}${st ? '<br><b>' + esc(st) + '</b>' : ''}</div>
+      <div class="row wrap" style="margin-top:8px">${b.installed && !active ? `<button class="primary" onclick="useBrowser('${b.id}')">Usar</button>` : ''}${!b.installed && b.installable ? `<button onclick="installBrowser('${b.id}')">Instalar</button>` : ''}</div></div>`;
+  }).join('');
+}
+const installing = {};
+window.useBrowser = async (id) => { toast('Cambiando a ' + id + '…'); try { await post('/browser/use', { browser: id }); toast('Navegador: ' + id); pageLoaders.browser(); } catch (e) { toast(e.message, true); } };
+window.installBrowser = async (id) => {
+  installing[id] = 'descargando…'; renderBrowsers();
+  try { await post('/browser/install', { browser: id }); } catch (e) { installing[id] = 'error: ' + e.message; renderBrowsers(); return; }
+  const poll = setInterval(async () => {
+    try { const s = await api('/browser/install/' + id); if (s.status === 'running') { installing[id] = 'descargando… ' + (s.log?.slice(-1)[0] || ''); renderBrowsers(); } else { clearInterval(poll); delete installing[id]; toast(s.status === 'done' ? id + ' instalado' : 'error: ' + (s.error || ''), s.status !== 'done'); renderBrowsers(); } } catch { clearInterval(poll); }
+  }, 2000);
 };
 $$('[data-act]').forEach(b => b.onclick = async () => { const a = b.dataset.act; toast('…'); try { const r = a === 'browser-restart' ? await post('/browser/restart') : await post(a === 'browser-show' ? '/browser/show' : '/browser/hide'); toast(JSON.stringify(r).slice(0, 120)); pageLoaders.browser(); } catch (e) { toast(e.message, true); } });
 $('#br-go').onclick = async () => { $('#br-out').textContent = '…'; try { const r = await post('/browser/tools/navigate', { url: $('#br-url').value }); $('#br-out').textContent = (r.upstream?.content || []).map(c => c.text || '[' + c.type + ']').join('\n'); pageLoaders.browser(); } catch (e) { $('#br-out').textContent = e.message; } };
