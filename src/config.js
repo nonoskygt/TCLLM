@@ -51,7 +51,7 @@ let cached = null;
 export function loadConfig() {
   let file = {};
   if (fs.existsSync(CONFIG_FILE)) {
-    try { file = JSON.parse(fs.readFileSync(CONFIG_FILE, 'utf8')); }
+    try { file = JSON.parse(fs.readFileSync(CONFIG_FILE, 'utf8').replace(/^\uFEFF/, '')); } // tolera BOM (PowerShell 5.1)
     catch (e) { throw new Error(`config.json inválido (${CONFIG_FILE}): ${e.message}`); }
   }
   const cfg = deepMerge(DEFAULTS, file);

@@ -1,10 +1,10 @@
 # TCLLM - instalador para Windows (por usuario, sin admin salvo VirtualBox).
-# Uso:  powershell -ExecutionPolicy Bypass -File install.ps1 [-InstallDir C:\ruta] [-Port 7777] [-Host 127.0.0.1]
+# Uso:  powershell -ExecutionPolicy Bypass -File install.ps1 [-InstallDir C:\ruta] [-Port 7777] [-BindHost 127.0.0.1]
 #                 [-NoVirtualBox] [-NoStart] [-Agents claude,codex,opencode,qwen,gemini,cursor,windsurf]
 param(
     [string]$InstallDir = "$env:LOCALAPPDATA\TCLLM",
     [int]$Port = 7777,
-    [string]$Host = '127.0.0.1',
+    [string]$BindHost = '127.0.0.1',
     [switch]$NoVirtualBox,
     [switch]$NoStart,
     [string]$Agents = ''
@@ -19,7 +19,7 @@ Write-Host "== TCLLM $ver ==" -ForegroundColor Cyan
 if ((Resolve-Path $src).Path -ne (Resolve-Path -LiteralPath $InstallDir -ErrorAction SilentlyContinue).Path) {
     New-Item -ItemType Directory -Force $InstallDir | Out-Null
     Write-Host "Copiando a $InstallDir ..."
-    robocopy $src $InstallDir /E /NFL /NDL /NJH /NJS /XD .git .dev-home dist /XF *.log | Out-Null
+    robocopy $src $InstallDir /E /NFL /NDL /NJH /NJS /XD "$src\.git" "$src\.dev-home" "$src\dist" /XF *.log | Out-Null
     if ($LASTEXITCODE -ge 8) { throw "robocopy falló ($LASTEXITCODE)" }
 }
 Set-Location $InstallDir
@@ -57,20 +57,20 @@ if (-not (Test-Path $vbm)) {
 } else { Write-Host "VirtualBox: $(& $vbm --version)" }
 
 # 5. Navegador para Playwright: Chrome si existe, si no Edge (siempre presente en Windows 10/11)
-$browser = if (Test-Path "$env:ProgramFiles\Google\Chrome\Application\chrome.exe" -or (Test-Path "${env:ProgramFiles(x86)}\Google\Chrome\Application\chrome.exe")) { 'chrome' } else { 'msedge' }
+$browser = if ((Test-Path "$env:ProgramFiles\Google\Chrome\Application\chrome.exe") -or (Test-Path "${env:ProgramFiles(x86)}\Google\Chrome\Application\chrome.exe")) { 'chrome' } else { 'msedge' }
 Write-Host "Navegador para Playwright: $browser"
 
 # 6. Config inicial (~\.tcllm\config.json) con API key
-$home_ = "$env:USERPROFILE\.tcllm"; New-Item -ItemType Directory -Force $home_ | Out-Null
+$home_ = "$env:USERPROFILE\.tcllm"; New-Item -ItemType Directory -Force $home_, "$home_\logs" | Out-Null
 $cfgFile = "$home_\config.json"
 if (Test-Path $cfgFile) { $cfg = Get-Content $cfgFile -Raw | ConvertFrom-Json } else { $cfg = [pscustomobject]@{} }
 if (-not $cfg.server) { $cfg | Add-Member -NotePropertyName server -NotePropertyValue ([pscustomobject]@{}) }
 if (-not $cfg.server.apiKey) { $bytes = New-Object byte[] 24; [Security.Cryptography.RandomNumberGenerator]::Create().GetBytes($bytes); $cfg.server | Add-Member -Force -NotePropertyName apiKey -NotePropertyValue ([Convert]::ToBase64String($bytes).TrimEnd('=').Replace('+','-').Replace('/','_')) }
 $cfg.server | Add-Member -Force -NotePropertyName port -NotePropertyValue $Port
-$cfg.server | Add-Member -Force -NotePropertyName host -NotePropertyValue $Host
+$cfg.server | Add-Member -Force -NotePropertyName host -NotePropertyValue $BindHost
 if (-not $cfg.playwright) { $cfg | Add-Member -NotePropertyName playwright -NotePropertyValue ([pscustomobject]@{ enabled = $true; port = 8932; browser = $browser; isolated = $true }) }
 if (-not $cfg.vms) { $cfg | Add-Member -NotePropertyName vms -NotePropertyValue ([pscustomobject]@{}) }
-$cfg | ConvertTo-Json -Depth 8 | Set-Content -Encoding UTF8 $cfgFile
+[IO.File]::WriteAllText($cfgFile, ($cfg | ConvertTo-Json -Depth 8), (New-Object Text.UTF8Encoding $false))   # UTF-8 sin BOM
 $apiKey = $cfg.server.apiKey
 
 # 7. PATH de usuario + tarea programada al iniciar sesión (sesión interactiva: necesaria para mostrar/ocultar ventanas)

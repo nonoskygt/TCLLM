@@ -17,6 +17,11 @@ const HELP = `TCLLM ${VERSION} — Total Control for LLMs
   tcllm config                      ruta y contenido (sin secretos) de config.json
 `;
 
+// Errores no capturados -> ~/.tcllm/logs/crash.log (el proceso corre oculto bajo la tarea programada)
+const crash = (kind) => (e) => { try { fs.mkdirSync(`${HOME}/logs`, { recursive: true }); fs.appendFileSync(`${HOME}/logs/crash.log`, `${new Date().toISOString()} ${kind}: ${e?.stack || e}\n`); } catch {} console.error(e); if (kind === 'uncaughtException') process.exit(1); };
+process.on('uncaughtException', crash('uncaughtException'));
+process.on('unhandledRejection', crash('unhandledRejection'));
+
 switch (cmd) {
   case 'start': { const { startServer } = await import('../src/server.js'); await startServer(); break; }
   case 'mcp-stdio': {

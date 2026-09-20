@@ -1,4 +1,4 @@
-# TCLLM - empaquetado: dist\TCLLM-<ver>-win64.zip (código + node_modules + Node runtime) y, si hay iexpress, TCLLM-<ver>-setup.exe
+# TCLLM - empaquetado: dist\TCLLM-<ver>-win64.zip (código + node_modules + Node runtime) y TCLLM-<ver>-setup.exe (auto-extraíble)
 # Uso: powershell -ExecutionPolicy Bypass -File scripts\pack.ps1 [-NoRuntime] [-NodeVersion 24.14.0]
 param([switch]$NoRuntime, [string]$NodeVersion = '')
 $ErrorActionPreference = 'Stop'
@@ -29,63 +29,27 @@ if (-not $NoRuntime) {
 }
 
 # 4. install.cmd (doble clic) y ZIP
-@"
-@echo off
-powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0scripts\install.ps1" %*
-pause
-"@ | Set-Content "$stage\install.cmd" -Encoding ASCII
+"@echo off`r`npowershell -NoProfile -ExecutionPolicy Bypass -File `"%~dp0scripts\install.ps1`" %*`r`npause`r`n" | Set-Content "$stage\install.cmd" -Encoding ASCII -NoNewline
 $zip = "$dist\TCLLM-$ver-win64.zip"
 if (Test-Path $zip) { Remove-Item $zip }
 Compress-Archive -Path "$stage\*" -DestinationPath $zip -CompressionLevel Optimal
 Write-Host "ZIP: $zip ($([math]::Round((Get-Item $zip).Length/1MB,1)) MB)" -ForegroundColor Green
 
-# 5. Auto-extraíble con iexpress (si existe): extrae el zip a %TEMP% y lanza el instalador
-$iexpress = "$env:WINDIR\System32\iexpress.exe"
-if (Test-Path $iexpress) {
-    $setup = "$dist\TCLLM-$ver-setup.exe"
-    $runner = "$dist\tcllm-setup-run.cmd"
-    @"
-@echo off
-set "T=%TEMP%\TCLLM-$ver"
-if exist "%T%" rmdir /s /q "%T%"
-powershell -NoProfile -ExecutionPolicy Bypass -Command "Expand-Archive -LiteralPath '%~dp0TCLLM-$ver-win64.zip' -DestinationPath '%T%' -Force"
-powershell -NoProfile -ExecutionPolicy Bypass -File "%T%\scripts\install.ps1"
-pause
-"@ | Set-Content $runner -Encoding ASCII
-    $sed = "$dist\tcllm.sed"
-    @"
-[Version]
-Class=IEXPRESS
-SEDVersion=3
-[Options]
-PackagePurpose=InstallApp
-ShowInstallProgramWindow=1
-HideExtractAnimation=0
-UseLongFileName=1
-InsideCompressed=0
-RebootMode=N
-InstallPrompt=
-DisplayLicense=
-FinishMessage=
-TargetName=$setup
-FriendlyName=TCLLM $ver
-AppLaunched=cmd.exe /c tcllm-setup-run.cmd
-PostInstallCmd=<None>
-AdminQuietInstCmd=
-UserQuietInstCmd=
-SourceFiles=SourceFiles
-[Strings]
-[SourceFiles]
-SourceFiles0=$dist\
-[SourceFiles0]
-%FILE0%=
-%FILE1%=
-[Strings]
-FILE0=TCLLM-$ver-win64.zip
-FILE1=tcllm-setup-run.cmd
-"@ | Set-Content $sed -Encoding ASCII
-    if (Test-Path $setup) { Remove-Item $setup }
-    & $iexpress /N /Q $sed | Out-Null
-    if (Test-Path $setup) { Write-Host "Setup: $setup ($([math]::Round((Get-Item $setup).Length/1MB,1)) MB)" -ForegroundColor Green } else { Write-Host "iexpress no generó el setup (usa el ZIP)" -ForegroundColor Yellow }
-}
+# 5. Auto-extraíble: stub C# (csc.exe de .NET Framework, presente en todo Windows) + ZIP adjunto tras el marcador TCLLMZIP!
+$csc = "$env:WINDIR\Microsoft.NET\Framework64\v4.0.30319\csc.exe"
+if (Test-Path $csc) {
+    $setup = "$dist\TCLLM-$ver-setup.exe"; $stub = "$dist\_stub.exe"
+    & $csc /nologo /optimize /target:exe /out:$stub /reference:System.IO.Compression.FileSystem.dll /reference:System.IO.Compression.dll "$root\scripts\sfx\Setup.cs"
+    if ($LASTEXITCODE -eq 0) {
+        $out = [IO.File]::Create($setup)
+        try {
+            $b = [IO.File]::ReadAllBytes($stub); $out.Write($b, 0, $b.Length)
+            $m = [Text.Encoding]::ASCII.GetBytes('TCLLMZIP!'); $out.Write($m, 0, $m.Length)
+            $z = [IO.File]::ReadAllBytes($zip); $out.Write($z, 0, $z.Length)
+        } finally { $out.Close() }
+        Remove-Item $stub
+        Write-Host "Setup: $setup ($([math]::Round((Get-Item $setup).Length/1MB,1)) MB)" -ForegroundColor Green
+    } else { Write-Host "csc no pudo compilar el stub; usa el ZIP" -ForegroundColor Yellow }
+} else { Write-Host "csc.exe no encontrado; usa el ZIP" -ForegroundColor Yellow }
+
 Remove-Item $stage -Recurse -Force
