@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TCLLM · Panel</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' fill='%2315181c'/><rect x='10' y='10' width='80' height='80' fill='none' stroke='%23d9480f' stroke-width='8'/><text x='50' y='66' font-size='40' text-anchor='middle' fill='%23d9480f' font-family='Consolas,monospace' font-weight='700'>TC</text></svg>">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div id="login" class="modal hidden">
+  <div class="card">
+    <h2>TCLLM</h2>
+    <p>Introduce la API key del servidor (la ves con <code>tcllm apikey</code> o en <code>config.json</code>).</p>
+    <input id="login-key" type="password" placeholder="API key" autofocus>
+    <div class="row"><button id="login-btn" class="primary">Entrar</button><span id="login-err" class="err"></span></div>
+  </div>
+</div>
+
+<aside id="side">
+  <div class="brand"><span class="logo">TC</span><div><b>TCLLM</b><small id="ver">total control for llms</small></div></div>
+  <nav>
+    <a data-page="dashboard" class="active"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="9"/><rect x="14" y="3" width="7" height="5"/><rect x="14" y="12" width="7" height="9"/><rect x="3" y="16" width="7" height="5"/></svg><span>Dashboard</span></a>
+    <a data-page="vms"><svg viewBox="0 0 24 24"><rect x="2" y="4" width="20" height="13"/><path d="M8 21h8M12 17v4"/></svg><span>Máquinas virtuales</span></a>
+    <a data-page="browser"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/></svg><span>Navegador</span></a>
+    <a data-page="windows"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="13" height="10"/><path d="M8 15v4h13V9h-5"/></svg><span>Ventanas</span></a>
+    <a data-page="services"><svg viewBox="0 0 24 24"><path d="M3 12h4l3-8 4 16 3-8h4"/></svg><span>Servicios</span></a>
+    <a data-page="connect"><svg viewBox="0 0 24 24"><path d="M9 7V3M15 7V3M7 7h10v5a5 5 0 0 1-10 0V7zM12 17v4"/></svg><span>Conectar agentes</span></a>
+    <a data-page="logs"><svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h10"/></svg><span>Logs</span></a>
+    <a data-page="settings"><svg viewBox="0 0 24 24"><path d="M4 6h10M18 6h2M4 12h2M10 12h10M4 18h12M20 18h0"/><circle cx="16" cy="6" r="2"/><circle cx="8" cy="12" r="2"/><circle cx="18" cy="18" r="2"/></svg><span>Ajustes</span></a>
+  </nav>
+  <div class="pills" id="pills"></div>
+</aside>
+
+<main id="main">
+  <section id="page-dashboard" class="page">
+    <h1>Dashboard</h1>
+    <div class="grid" id="dash-cards"></div>
+    <h2>Máquinas virtuales</h2>
+    <div class="grid" id="dash-vms"></div>
+    <h2>Eventos recientes</h2>
+    <div id="dash-events" class="list"></div>
+  </section>
+
+  <section id="page-vms" class="page hidden">
+    <h1>Máquinas virtuales</h1>
+    <div id="vm-list" class="grid"></div>
+    <div id="vm-detail" class="hidden">
+      <div class="row between"><h2 id="vm-title"></h2><div class="row" id="vm-actions"></div></div>
+      <div class="vm-layout">
+        <div class="screen-wrap">
+          <div class="screen-tools row">
+            <label><input type="checkbox" id="vm-live" checked> En vivo (2 s)</label>
+            <label>Botón <select id="vm-btn"><option value="left">izq</option><option value="right">der</option><option value="middle">medio</option></select></label>
+            <label><input type="checkbox" id="vm-dbl"> Doble clic</label>
+            <span class="muted" id="vm-coords"></span>
+            <button id="vm-shot">Capturar</button>
+          </div>
+          <img id="vm-screen" alt="pantalla de la VM" title="Clic para enviar clic a la VM">
+        </div>
+        <div class="side-tools">
+          <h3>Teclado</h3>
+          <div class="row wrap keys">
+            <button data-key="enter">Enter</button><button data-key="esc">Esc</button><button data-key="tab">Tab</button><button data-key="backspace">⌫</button>
+            <button data-key="win">Win</button><button data-key="win+r">Win+R</button><button data-key="alt+f4">Alt+F4</button><button data-key="ctrl+alt+del">Ctrl+Alt+Del</button>
+            <button data-key="ctrl+shift+esc">Task Mgr</button><button data-key="up">↑</button><button data-key="down">↓</button><button data-key="left">←</button><button data-key="right">→</button>
+          </div>
+          <div class="row"><input id="vm-keys" placeholder="combinación, p.ej. ctrl+c"><button id="vm-keys-send">Enviar</button></div>
+          <textarea id="vm-text" rows="3" placeholder="Texto a escribir en la VM"></textarea>
+          <div class="row"><button id="vm-type">Teclear (ASCII)</button><button id="vm-paste">Pegar (portapapeles)</button></div>
+          <h3>PowerShell dentro de la VM</h3>
+          <textarea id="vm-cmd" rows="4" placeholder="Get-Process | Sort-Object CPU -Descending | Select-Object -First 5"></textarea>
+          <div class="row"><button id="vm-run" class="primary">Ejecutar</button><label><input type="checkbox" id="vm-admin"> elevado</label></div>
+          <pre id="vm-out" class="out"></pre>
+          <h3>Snapshots</h3>
+          <div id="vm-snaps" class="list"></div>
+          <div class="row"><input id="vm-snap-name" placeholder="nombre"><button id="vm-snap-take">Crear snapshot</button></div>
+          <h3>Info</h3>
+          <pre id="vm-info" class="out small"></pre>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="page-browser" class="page hidden">
+    <h1>Navegador (Playwright MCP)</h1>
+    <div class="grid" id="browser-cards"></div>
+    <div class="row wrap">
+      <button data-act="browser-show">Mostrar ventanas</button><button data-act="browser-hide">Ocultar ventanas</button><button data-act="browser-restart" class="warn">Reiniciar Playwright MCP</button>
+    </div>
+    <h2>Prueba rápida</h2>
+    <div class="row"><input id="br-url" placeholder="https://..." value="https://example.com"><button id="br-go" class="primary">Navegar</button><button id="br-snap">Snapshot</button><button id="br-shot">Captura</button></div>
+    <pre id="br-out" class="out"></pre>
+    <img id="br-img" class="hidden" alt="captura del navegador">
+    <h2>Tools disponibles (proxy browser_*)</h2>
+    <div id="br-tools" class="list small"></div>
+  </section>
+
+  <section id="page-windows" class="page hidden">
+    <h1>Ventanas</h1>
+    <p class="muted">Ventanas de las VMs (VirtualBoxVM) y del navegador Playwright. Ocultar no cierra nada: el proceso sigue.</p>
+    <div class="row"><button id="win-refresh">Actualizar</button></div>
+    <div id="win-list" class="list"></div>
+  </section>
+
+  <section id="page-services" class="page hidden">
+    <h1>Servicios</h1>
+    <div class="grid" id="svc-cards"></div>
+    <h2>Eventos</h2>
+    <div id="svc-events" class="list"></div>
+  </section>
+
+  <section id="page-connect" class="page hidden">
+    <h1>Conectar agentes y LLMs</h1>
+    <p class="muted">Servidor MCP: <code id="cn-mcp"></code> · API REST/OpenAPI: <code id="cn-api"></code> · Tools formato OpenAI: <code id="cn-openai"></code></p>
+    <div class="row"><button id="cn-install" class="primary">Instalar en los agentes detectados</button><button id="cn-skill">Ver SKILL.md</button><span id="cn-msg" class="muted"></span></div>
+    <div id="cn-agents" class="grid"></div>
+  </section>
+
+  <section id="page-logs" class="page hidden">
+    <h1>Logs</h1>
+    <div class="row"><label><input type="checkbox" id="log-follow" checked> Seguir</label><select id="log-level"><option value="">todos</option><option value="info">info</option><option value="warn">warn</option><option value="error">error</option></select><button id="log-clear">Limpiar vista</button></div>
+    <pre id="log-view" class="out logs"></pre>
+  </section>
+
+  <section id="page-settings" class="page hidden">
+    <h1>Ajustes</h1>
+    <p class="muted">config.json (los secretos se muestran como ***, se conservan al guardar). Los cambios de puerto/host/Playwright requieren reiniciar TCLLM.</p>
+    <textarea id="cfg-text" rows="26" spellcheck="false"></textarea>
+    <div class="row"><button id="cfg-save" class="primary">Guardar</button><button id="cfg-reload">Recargar</button><button id="cfg-rotate" class="warn">Rotar API key</button><button id="cfg-logout">Salir del panel</button><span id="cfg-msg" class="muted"></span></div>
+  </section>
+</main>
+<div id="toast" class="hidden"></div>
+<script src="app.js"></script>
+</body>
+</html>

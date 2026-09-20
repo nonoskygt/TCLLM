@@ -1,0 +1,22 @@
+{
+  "name": "tcllm",
+  "version": "0.1.0",
+  "description": "TCLLM - Total Control for LLMs: remote control of VirtualBox VMs and Playwright browsers for any LLM (REST API, MCP, admin panel, service monitor).",
+  "type": "module",
+  "license": "MIT",
+  "bin": { "tcllm": "bin/tcllm.js" },
+  "main": "src/server.js",
+  "engines": { "node": ">=20" },
+  "scripts": {
+    "start": "node bin/tcllm.js start",
+    "test": "node test/smoke.mjs",
+    "pack": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/pack.ps1"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.30.0",
+    "@playwright/mcp": "^0.0.82",
+    "express": "^5.2.1",
+    "ws": "^8.18.0",
+    "zod": "^3.25.0"
+  }
+}

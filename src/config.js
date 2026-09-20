@@ -1,0 +1,86 @@
+// Configuración de TCLLM: config.json (junto al paquete o en TCLLM_HOME) con valores por defecto.
+import fs from 'node:fs';
+import path from 'node:path';
+import os from 'node:os';
+import crypto from 'node:crypto';
+import { fileURLToPath } from 'node:url';
+
+export const PKG_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+export const HOME = process.env.TCLLM_HOME || path.join(os.homedir(), '.tcllm');
+export const CONFIG_FILE = process.env.TCLLM_CONFIG || path.join(HOME, 'config.json');
+
+const DEFAULTS = {
+  server: { host: '127.0.0.1', port: 7777, apiKey: '' },
+  paths: {
+    vboxManage: 'C:\\Program Files\\Oracle\\VirtualBox\\VBoxManage.exe',
+    virtualBoxVM: 'C:\\Program Files\\Oracle\\VirtualBox\\VirtualBoxVM.exe',
+    dataDir: path.join(HOME, 'data'),
+  },
+  // VMs conocidas (credenciales del guest para guestcontrol/SSH). Las demás se listan pero sin control interno.
+  vms: {
+    // "Win11": { user: "claude", password: "...", sshPort: 2222, sshKey: "C:\\...\\id_ed25519", sharedFolder: "D:\\VMs\\shared" }
+  },
+  playwright: {
+    enabled: true,
+    port: 8932,
+    host: '127.0.0.1',
+    allowedHosts: [],            // extra hosts para --allowed-hosts (además de host:port)
+    browser: 'chrome',           // chrome | msedge | chromium
+    isolated: true,
+    headless: false,
+    storageState: '',            // ruta a storage-state.json (logins); vacío = sin estado
+    freeFileDialogs: false,      // --init-page para no interceptar el diálogo de archivos (útil para humanos)
+    extraArgs: [],
+    restartDelayMs: 3000,
+  },
+  monitor: { intervalMs: 10000, historySize: 500 },
+  watchdog: { enabled: true, samplesToReset: 3, sampleMs: 30000 },
+};
+
+function deepMerge(base, extra) {
+  const out = Array.isArray(base) ? [...base] : { ...base };
+  for (const [k, v] of Object.entries(extra || {})) {
+    if (v && typeof v === 'object' && !Array.isArray(v) && base && typeof base[k] === 'object' && !Array.isArray(base[k])) out[k] = deepMerge(base[k], v);
+    else out[k] = v;
+  }
+  return out;
+}
+
+let cached = null;
+
+export function loadConfig() {
+  let file = {};
+  if (fs.existsSync(CONFIG_FILE)) {
+    try { file = JSON.parse(fs.readFileSync(CONFIG_FILE, 'utf8')); }
+    catch (e) { throw new Error(`config.json inválido (${CONFIG_FILE}): ${e.message}`); }
+  }
+  const cfg = deepMerge(DEFAULTS, file);
+  if (!cfg.server.apiKey) {
+    cfg.server.apiKey = crypto.randomBytes(24).toString('base64url');
+    saveConfig(cfg);
+  }
+  fs.mkdirSync(cfg.paths.dataDir, { recursive: true });
+  cached = cfg;
+  return cfg;
+}
+
+export function getConfig() { return cached || loadConfig(); }
+
+export function saveConfig(cfg) {
+  fs.mkdirSync(path.dirname(CONFIG_FILE), { recursive: true });
+  fs.writeFileSync(CONFIG_FILE, JSON.stringify(cfg, null, 2) + '\n');
+  cached = cfg;
+}
+
+// Versión sin secretos para el panel/API.
+export function redactedConfig(cfg = getConfig()) {
+  const c = JSON.parse(JSON.stringify(cfg));
+  c.server.apiKey = c.server.apiKey ? '***' : '';
+  for (const vm of Object.values(c.vms)) if (vm.password) vm.password = '***';
+  return c;
+}
+
+export function vmCredentials(name) {
+  const v = getConfig().vms[name];
+  return v ? { user: v.user, password: v.password, sshPort: v.sshPort, sshKey: v.sshKey } : null;
+}

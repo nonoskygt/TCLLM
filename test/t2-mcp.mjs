@@ -1,0 +1,18 @@
+import { Client } from '@modelcontextprotocol/sdk/client/index.js';
+import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
+const c = new Client({ name: 'test', version: '0' });
+await c.connect(new StreamableHTTPClientTransport(new URL('http://127.0.0.1:7777/mcp'), { requestInit: { headers: { Authorization: 'Bearer dev-key-tcllm' } } }));
+const { tools } = await c.listTools();
+console.log('tools:', tools.length, '| vm:', tools.filter(t=>t.name.startsWith('vm_')).length, '| browser:', tools.filter(t=>t.name.startsWith('browser_')).length, '| otros:', tools.filter(t=>!/^(vm|browser)_/.test(t.name)).map(t=>t.name).join(','));
+const nav = tools.find(t=>t.name==='browser_navigate'); console.log('browser_navigate schema:', JSON.stringify(nav.inputSchema).slice(0,120));
+let r = await c.callTool({ name: 'vm_list', arguments: {} }); console.log('vm_list:', r.content[0].text.slice(0,160).replace(/\n/g,' '));
+r = await c.callTool({ name: 'browser_navigate', arguments: { url: 'https://example.com' } }); console.log('browser_navigate:', r.isError, r.content.map(x=>x.type+':'+(x.text||'').slice(0,80).replace(/\n/g,' ')).join(' | '));
+r = await c.callTool({ name: 'browser_snapshot', arguments: {} }); console.log('browser_snapshot:', r.isError, (r.content[0].text||'').split('\n').filter(l=>/heading|Page URL/.test(l)).join(' | '));
+r = await c.callTool({ name: 'services_status', arguments: {} }); const s = JSON.parse(r.content[0].text); console.log('services_status: playwright windows', s.playwright.windows.length, 'host cpu', s.host.cpuPercent);
+r = await c.callTool({ name: 'windows_list', arguments: {} }); console.log('windows_list:', JSON.parse(r.content[0].text).map(w=>w.kind+':'+w.title.slice(0,30)+':'+w.visible));
+r = await c.callTool({ name: 'browser_windows_hide', arguments: {} }); console.log('hide:', r.content[0].text);
+await new Promise(r=>setTimeout(r,1500));
+r = await c.callTool({ name: 'browser_windows_show', arguments: {} }); console.log('show:', r.content[0].text);
+r = await c.callTool({ name: 'vm_screenshot', arguments: { vm: 'Win11' } }); console.log('vm_screenshot (VM apagada):', r.isError, r.content[0].text.slice(0,80));
+r = await c.callTool({ name: 'browser_close', arguments: {} }); console.log('browser_close:', r.isError);
+await c.close();

@@ -1,0 +1,4 @@
+.dev-home/
+node_modules/
+dist/
+*.log
