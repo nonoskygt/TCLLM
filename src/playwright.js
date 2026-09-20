@@ -45,6 +45,12 @@ class PlaywrightSupervisor {
     this.stopping = false;
     // Si ya hay algo escuchando en el puerto (p.ej. un Playwright MCP externo o huérfano), lo adoptamos en vez de morir en bucle.
     this.effectivePort = null;
+    const det = browsers.detect();
+    if (!det[this.cfg.browser]?.installed && !this.cfg.executablePath && Object.hasOwn(browsers.CATALOG, this.cfg.browser)) {
+      const alt = browsers.pickDefault();
+      L.warn(`el navegador configurado (${this.cfg.browser}) no está instalado; uso ${alt} (cámbialo en el panel > Navegador)`);
+      const cfg = getConfig(); cfg.playwright.browser = alt; saveConfig(cfg);
+    }
     if (await this.tcpCheck()) {
       try { await this.listTools(); this.adopted = true; L.warn(`puerto ${this.cfg.port} ya tiene un Playwright MCP: adoptado (no lo gestiona TCLLM)`); return; }
       catch (e) {
@@ -81,12 +87,19 @@ class PlaywrightSupervisor {
   /** Cambia el navegador (chrome|msedge|brave|chromium|firefox|webkit), lo guarda en config y relanza el Playwright MCP. */
   async useBrowser(id, { executablePath } = {}) {
     const d = browsers.detect();
-    if (!browsers.CATALOG[id]) throw new Error(`Navegador desconocido: ${id}. Opciones: ${Object.keys(browsers.CATALOG).join(', ')}`);
+    if (typeof id !== 'string' || !Object.hasOwn(browsers.CATALOG, id)) throw new Error(`Navegador desconocido: ${id}. Opciones: ${Object.keys(browsers.CATALOG).join(', ')}`);
+    if (executablePath) {
+      if (!['brave', 'chromium', 'chrome', 'msedge'].includes(id)) throw new Error('executablePath solo vale para navegadores Chromium (brave, chromium, chrome, msedge)');
+      if (!fs.existsSync(executablePath)) throw new Error(`No existe el ejecutable: ${executablePath}`);
+    }
+    if (!this.cfg.enabled) return { browser: id, applied: false, note: 'Playwright está deshabilitado en config (playwright.enabled=false)' };
     if (!d[id].installed && !executablePath) throw new Error(`${d[id].title} no está instalado.${d[id].installable ? ' Instálalo con browser_install / POST /api/browser/install.' : ''}`);
-    const cfg = getConfig(); cfg.playwright.browser = id; cfg.playwright.executablePath = executablePath || ''; saveConfig(cfg);
+    const cfg = getConfig();
+    if (id === cfg.playwright.browser && (executablePath || '') === (cfg.playwright.executablePath || '')) return { browser: id, unchanged: true, status: await this.status() };
+    cfg.playwright.browser = id; cfg.playwright.executablePath = executablePath || ''; saveConfig(cfg);
     L.info(`cambiando navegador a ${id}`);
-    if (this.adopted) { this.adopted = false; return { browser: id, note: 'el Playwright MCP adoptado no lo gestiona TCLLM; el cambio aplicará cuando TCLLM lo lance', status: await this.status() }; }
-    return { browser: id, status: await this.restart() };
+    if (this.adopted) return { browser: id, applied: false, note: `hay un Playwright MCP externo en el puerto ${this.port} que TCLLM adoptó; párralo (o cambia playwright.port) para que TCLLM lance el suyo con ${id}`, status: await this.status() };
+    return { browser: id, applied: true, status: await this.restart() };
   }
 
   async restart() { await this.stop(); this.restarts = 0; await this.start(); await this.waitListening(30000); return this.status(); }
@@ -138,7 +151,7 @@ class PlaywrightSupervisor {
     if (listening) { try { toolCount = (await this.listTools()).length; mcpOk = true; } catch (e) { L.debug('mcp check: ' + e.message); } }
     const browserWindows = listening ? (await windows.list().catch(() => [])).filter(w => w.kind === 'browser') : [];
     return {
-      enabled: this.cfg.enabled, running: !!this.proc, adopted: !!this.adopted, pid: this.proc?.pid || null, listening, mcpOk, toolCount,
+      enabled: this.cfg.enabled, running: !!this.proc, adopted: !!this.adopted, adoptedNote: this.adopted ? 'Playwright MCP externo: TCLLM no controla su navegador ni puede cambiarlo' : undefined, pid: this.proc?.pid || null, listening, mcpOk, toolCount,
       url: this.url, port: this.port, configuredPort: this.cfg.port, browser: this.cfg.browser, browserTitle: browsers.CATALOG[this.cfg.browser]?.title || this.cfg.browser, isolated: this.cfg.isolated, restarts: this.restarts,
       uptimeMs: this.startedAt && this.proc ? Date.now() - this.startedAt : 0, lastExit: this.lastExit,
       windows: browserWindows.map(w => ({ hwnd: w.hwnd, title: w.title, visible: w.visible })),

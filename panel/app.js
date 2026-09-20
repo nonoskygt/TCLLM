@@ -133,17 +133,22 @@ async function renderBrowsers() {
     const active = b.id === d.active;
     const st = installing[b.id];
     return `<div class="card"><div class="row between"><h4>${esc(b.title)}</h4><span class="tag ${active ? 'ok' : b.installed ? '' : 'warn'}">${active ? 'activo' : b.installed ? 'instalado' : 'no instalado'}</span></div>
-      <div class="muted">${esc(b.path || (b.installable ? 'build de Playwright ' + esc(b.revision || '') : 'no encontrado en el sistema'))}${b.note ? '<br>' + esc(b.note) : ''}${st ? '<br><b>' + esc(st) + '</b>' : ''}</div>
-      <div class="row wrap" style="margin-top:8px">${b.installed && !active ? `<button class="primary" onclick="useBrowser('${b.id}')">Usar</button>` : ''}${!b.installed && b.installable ? `<button onclick="installBrowser('${b.id}')">Instalar</button>` : ''}</div></div>`;
+      <div class="muted">${esc(b.path || (b.installable ? 'build de Playwright ' + (b.revision || '') : 'no encontrado en el sistema'))}${b.note ? '<br>' + esc(b.note) : ''}${st ? '<br><b>' + esc(st) + '</b>' : ''}</div>
+      <div class="row wrap" style="margin-top:8px">${b.installed && !active ? `<button class="primary" onclick="useBrowser('${esc(b.id)}')" ${switching ? 'disabled' : ''}>Usar</button>` : ''}${!b.installed && b.installable && !st ? `<button onclick="installBrowser('${esc(b.id)}')">Instalar</button>` : ''}</div></div>`;
   }).join('');
 }
-const installing = {};
-window.useBrowser = async (id) => { toast('Cambiando a ' + id + '…'); try { await post('/browser/use', { browser: id }); toast('Navegador: ' + id); pageLoaders.browser(); } catch (e) { toast(e.message, true); } };
+const installing = {}; let switching = false;
+window.useBrowser = async (id) => { if (switching) return; switching = true; toast('Cambiando a ' + id + '… (hasta 30 s)'); renderBrowsers(); try { const r = await post('/browser/use', { browser: id }); toast(r.applied === false ? r.note : 'Navegador: ' + id, r.applied === false); } catch (e) { toast(e.message, true); } switching = false; pageLoaders.browser(); };
 window.installBrowser = async (id) => {
   installing[id] = 'descargando…'; renderBrowsers();
   try { await post('/browser/install', { browser: id }); } catch (e) { installing[id] = 'error: ' + e.message; renderBrowsers(); return; }
+  let failures = 0;
   const poll = setInterval(async () => {
-    try { const s = await api('/browser/install/' + id); if (s.status === 'running') { installing[id] = 'descargando… ' + (s.log?.slice(-1)[0] || ''); renderBrowsers(); } else { clearInterval(poll); delete installing[id]; toast(s.status === 'done' ? id + ' instalado' : 'error: ' + (s.error || ''), s.status !== 'done'); renderBrowsers(); } } catch { clearInterval(poll); }
+    try {
+      const s = await api('/browser/install/' + id); failures = 0;
+      if (s.status === 'running') { installing[id] = 'descargando… ' + (s.log?.slice(-1)[0] || ''); renderBrowsers(); }
+      else { clearInterval(poll); delete installing[id]; toast(s.status === 'done' ? id + ' instalado' : 'error: ' + (s.error || s.status), s.status !== 'done'); renderBrowsers(); }
+    } catch { if (++failures >= 5) { clearInterval(poll); delete installing[id]; toast('sin respuesta del servidor durante la instalación', true); renderBrowsers(); } }
   }, 2000);
 };
 $$('[data-act]').forEach(b => b.onclick = async () => { const a = b.dataset.act; toast('…'); try { const r = a === 'browser-restart' ? await post('/browser/restart') : await post(a === 'browser-show' ? '/browser/show' : '/browser/hide'); toast(JSON.stringify(r).slice(0, 120)); pageLoaders.browser(); } catch (e) { toast(e.message, true); } });

@@ -4,7 +4,7 @@
 
 - **Navegadores**: Playwright funciona con Chrome, Edge, **Brave** (Chromium del sistema) y con las builds propias de Playwright de **Firefox**, Chromium y WebKit.
   Detección de lo instalado, instalación bajo demanda (`browser_install` / panel) y cambio en caliente (`browser_use` / panel → Navegador).
-- Nuevas tools MCP/REST: `browser_list`, `browser_use`, `browser_install`; `GET /api/browser/browsers`, `POST /api/browser/use`, `POST /api/browser/install`.
+- Nuevas tools MCP/REST: `browser_list`, `browser_use`, `browser_install`; `GET /api/browser/browsers`, `POST /api/browser/use`, `POST /api/browser/install` (no bloqueante) y `GET /api/browser/install/:browser` (progreso).
 - Config: `playwright.browser` acepta `chrome | msedge | brave | chromium | firefox | webkit`; `playwright.executablePath` para otros Chromium (Vivaldi, Opera…).
 - Ventanas: se detectan también Brave y Firefox lanzados por Playwright.
 

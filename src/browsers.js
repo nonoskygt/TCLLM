@@ -19,14 +19,19 @@ const LAD = process.env.LOCALAPPDATA || path.join(os.homedir(), 'AppData', 'Loca
 /** Catálogo: id -> cómo se detecta y cómo se lanza. kind: 'channel' (Chrome/Edge del sistema), 'exe' (Chromium de terceros), 'playwright' (build propia). */
 export const CATALOG = {
   chrome:   { title: 'Google Chrome',   kind: 'channel', channel: 'chrome',   paths: [path.join(PF, 'Google', 'Chrome', 'Application', 'chrome.exe'), path.join(PF86, 'Google', 'Chrome', 'Application', 'chrome.exe'), path.join(LAD, 'Google', 'Chrome', 'Application', 'chrome.exe')] },
-  msedge:   { title: 'Microsoft Edge',  kind: 'channel', channel: 'msedge',   paths: [path.join(PF86, 'Microsoft', 'Edge', 'Application', 'msedge.exe'), path.join(PF, 'Microsoft', 'Edge', 'Application', 'msedge.exe')] },
+  msedge:   { title: 'Microsoft Edge',  kind: 'channel', channel: 'msedge',   paths: [path.join(PF86, 'Microsoft', 'Edge', 'Application', 'msedge.exe'), path.join(PF, 'Microsoft', 'Edge', 'Application', 'msedge.exe'), path.join(LAD, 'Microsoft', 'Edge', 'Application', 'msedge.exe')] },
   brave:    { title: 'Brave',           kind: 'exe',     engine: 'chromium',  paths: [path.join(PF, 'BraveSoftware', 'Brave-Browser', 'Application', 'brave.exe'), path.join(PF86, 'BraveSoftware', 'Brave-Browser', 'Application', 'brave.exe'), path.join(LAD, 'BraveSoftware', 'Brave-Browser', 'Application', 'brave.exe')] },
   chromium: { title: 'Chromium (build de Playwright)', kind: 'playwright', engine: 'chromium', pwName: 'chromium' },
   firefox:  { title: 'Firefox (build de Playwright)',  kind: 'playwright', engine: 'firefox',  pwName: 'firefox', note: 'Playwright no puede manejar el Firefox normal: usa su propia build con parches.' },
   webkit:   { title: 'WebKit (motor de Safari)',       kind: 'playwright', engine: 'webkit',   pwName: 'webkit' },
 };
 
-function browsersDir() { return process.env.PLAYWRIGHT_BROWSERS_PATH || path.join(LAD, 'ms-playwright'); }
+function browsersDir() {
+  const v = process.env.PLAYWRIGHT_BROWSERS_PATH;
+  if (!v) return path.join(LAD, 'ms-playwright');
+  if (v === '0') return path.join(PKG_ROOT, 'node_modules', 'playwright-core', '.local-browsers');
+  return path.isAbsolute(v) ? v : path.resolve(process.env.INIT_CWD || process.cwd(), v);
+}
 
 /** Revisión que exige el playwright-core empaquetado, p.ej. firefox -> "1549". */
 export function requiredRevision(pwName) {
@@ -40,7 +45,7 @@ function playwrightBuildDir(pwName) {
   const rev = requiredRevision(pwName);
   if (!rev) return null;
   const dir = path.join(browsersDir(), `${pwName}-${rev}`);
-  return fs.existsSync(dir) ? dir : null;
+  return fs.existsSync(path.join(dir, 'INSTALLATION_COMPLETE')) ? dir : null;   // Playwright escribe el marcador al terminar de extraer
 }
 
 /** Estado de todos los navegadores del catálogo. */
@@ -60,12 +65,11 @@ export function detect() {
 
 /** Argumentos de @playwright/mcp para un navegador del catálogo (o un id desconocido = canal tal cual). */
 export function launchArgs(id, { executablePath } = {}) {
-  const c = CATALOG[id];
-  if (!c) return ['--browser', id];
-  if (c.kind === 'channel') return ['--browser', c.channel];
+  const c = Object.hasOwn(CATALOG, id) ? CATALOG[id] : null;
+  if (!c) throw new Error(`Navegador desconocido: ${id}. Opciones: ${Object.keys(CATALOG).join(', ')}`);
+  if (c.kind === 'channel') return executablePath ? ['--browser', 'chromium', '--executable-path', executablePath] : ['--browser', c.channel];
   if (c.kind === 'exe') {
-    const exe = executablePath || c.paths.find(x => fs.existsSync(x));
-    if (!exe) throw new Error(`${c.title} no está instalado (busqué en ${c.paths.join(', ')})`);
+    const exe = executablePath || c.paths.find(x => fs.existsSync(x)) || c.paths[0];   // si falta, Playwright dará un error claro al lanzar
     return ['--browser', c.engine, '--executable-path', exe];
   }
   return ['--browser', c.engine, ...(executablePath ? ['--executable-path', executablePath] : [])];
@@ -78,26 +82,33 @@ export function pickDefault(pref = ['chrome', 'msedge', 'brave', 'chromium', 'fi
 }
 
 const installs = new Map(); // id -> { promise, status, log }
+let installQueue = Promise.resolve();
 
 /** Instala una build de Playwright (chromium|firefox|webkit) con el instalador del propio Playwright. Idempotente. */
 export function install(id) {
-  const c = CATALOG[id];
+  const c = Object.hasOwn(CATALOG, id) ? CATALOG[id] : null;
   if (!c || c.kind !== 'playwright') throw new Error(`"${id}" no es instalable desde TCLLM (solo chromium, firefox, webkit). Chrome/Edge/Brave se instalan desde su web.`);
   if (installs.get(id)?.status === 'running') return installs.get(id).promise;
   const st = { status: 'running', log: [], startedAt: Date.now() };
-  st.promise = new Promise((resolve, reject) => {
+  // Una instalación a la vez (el instalador de Playwright usa un lock de directorio; mejor no competir)
+  const prev = installQueue;
+  st.promise = prev.catch(() => {}).then(() => new Promise((resolve, reject) => {
     L.info(`instalando ${id} (build de Playwright) ...`);
-    const p = spawn(process.execPath, [MCP_CLI, 'install-browser', c.pwName, '--no-progress'], { windowsHide: true, env: { ...process.env } });
-    const onData = (d) => { for (const line of String(d).split(/\r?\n/)) if (line.trim()) { st.log.push(line.trim()); if (st.log.length > 200) st.log.shift(); } };
+    // --no-remove: que el gc del instalador no borre otras builds del directorio
+    const p = spawn(process.execPath, [MCP_CLI, 'install-browser', c.pwName, '--no-progress', '--no-remove'], { windowsHide: true, env: { ...process.env } });
+    const ANSI = /\x1b\[[0-9;]*m/g;   // quitar colores ANSI del instalador
+    const onData = (d) => { for (const line of String(d).replace(ANSI, '').split(/\r?\n/)) if (line.trim()) { st.log.push(line.trim()); if (st.log.length > 200) st.log.shift(); } };
     p.stdout.on('data', onData); p.stderr.on('data', onData);
     p.on('error', (e) => { st.status = 'error'; st.error = e.message; reject(e); });
-    p.on('exit', (code) => {
+    p.on('exit', (code, signal) => {
+      if (st.status === 'error') return;
       const ok = code === 0 && !!playwrightBuildDir(c.pwName);
       st.status = ok ? 'done' : 'error'; st.finishedAt = Date.now();
       if (ok) { L.info(`${id} instalado en ${playwrightBuildDir(c.pwName)}`); resolve(detect()[id]); }
-      else { st.error = `install-browser salió con código ${code}`; L.warn(`${id}: ${st.error}`); reject(new Error(st.error + ': ' + st.log.slice(-3).join(' | '))); }
+      else { st.error = `install-browser salió con código ${code ?? ('señal ' + signal)}`; L.warn(`${id}: ${st.error}`); reject(new Error(st.error + ': ' + st.log.slice(-3).join(' | '))); }
     });
-  });
+  }));
+  installQueue = st.promise;
   installs.set(id, st);
   return st.promise;
 }

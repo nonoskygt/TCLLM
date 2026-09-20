@@ -51,7 +51,9 @@ const INSTRUCTIONS = `TCLLM da control total de máquinas virtuales VirtualBox (
 Flujo típico con una VM: vm_list -> vm_start (si no está running) -> vm_screenshot -> vm_click/vm_key/vm_type -> vm_run para leer datos del guest.
 Reglas: usa vm_run (PowerShell dentro) para obtener información, no interpretes capturas si no hace falta; para reiniciar Windows usa
 vm_restart (nunca "shutdown /r" a mano: bajo Hyper-V el reinicio se cuelga y vm_restart lo vigila); vm_type para texto corto ASCII,
-vm_paste para texto largo/Unicode. Las coordenadas de vm_click son las de la última vm_screenshot.`;
+vm_paste para texto largo/Unicode. Las coordenadas de vm_click son las de la última vm_screenshot.
+Navegador: browser_list muestra los navegadores disponibles (Chrome, Edge, Brave, Firefox, Chromium, WebKit) y el activo; browser_use cambia de
+navegador (relanza Playwright: se pierden las pestañas de todos los agentes); browser_install descarga Firefox/Chromium/WebKit.`;
 
 // ---------- Streamable HTTP (sesiones) ----------
 const sessions = new Map(); // sessionId -> transport

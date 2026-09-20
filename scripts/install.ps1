@@ -76,7 +76,7 @@ if (-not (Test-Path -LiteralPath $vbm)) {
 } else { Write-Host "VirtualBox: $(& $vbm --version)" }
 
 # 5. Navegador para Playwright: Chrome si existe, si no Edge (siempre presente en Windows 10/11)
-$browser = if ((Test-Path -LiteralPath "$env:ProgramFiles\Google\Chrome\Application\chrome.exe") -or (Test-Path -LiteralPath "${env:ProgramFiles(x86)}\Google\Chrome\Application\chrome.exe")) { 'chrome' } else { 'msedge' }
+$browser = if ((Test-Path -LiteralPath "$env:ProgramFiles\Google\Chrome\Application\chrome.exe") -or (Test-Path -LiteralPath "${env:ProgramFiles(x86)}\Google\Chrome\Application\chrome.exe") -or (Test-Path -LiteralPath "$env:LOCALAPPDATA\Google\Chrome\Application\chrome.exe")) { 'chrome' } else { 'msedge' }   # TCLLM lo reconcilia al arrancar si no existe
 Write-Host "Navegador para Playwright: $browser"
 
 # 6. Config (%USERPROFILE%\.tcllm\config.json): se crea si no existe; en reinstalaciones se respeta lo que haya

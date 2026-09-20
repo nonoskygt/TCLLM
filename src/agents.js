@@ -83,7 +83,9 @@ TCLLM corre en \`${url}\` (panel: \`${url}/\`). Úsalo por **MCP** (servidor \`t
 - Reiniciar Windows: **solo** \`vm_restart\` (vigila el cuelgue de VirtualBox sobre Hyper-V y resetea). Nunca \`shutdown /r\` a mano.
 - Si la VM está en negro y no responde: \`vm_reset\`.
 - \`vm_show\` / \`vm_hide\` muestran u ocultan su ventana en el host; \`browser_windows_show/hide\` las del navegador.
-- Navegador: tools \`browser_*\` (navigate, snapshot, click, type, …) = Playwright MCP vía TCLLM.
+- Navegador: tools \`browser_*\` (navigate, snapshot, click, type, …) = Playwright MCP vía TCLLM. \`browser_list\` dice qué navegadores hay
+  (Chrome, Edge, Brave, Firefox, Chromium, WebKit) y cuál está activo; \`browser_use\` cambia de navegador (relanza Playwright: se pierden las pestañas);
+  \`browser_install\` descarga Firefox/Chromium/WebKit (100-200 MB, tarda).
 
 ## Tools
 ${list}
