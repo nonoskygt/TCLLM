@@ -33,7 +33,7 @@ switch (cmd) {
     const { bridge } = await import('../src/bridge.js');
     const { playwright } = await import('../src/playwright.js');
     bridge.start().catch(() => {});
-    playwright.start();
+    playwright.start().catch(() => {});
     await runStdio();
     break;
   }

@@ -16,9 +16,10 @@ export function authMiddleware(req, res, next) {
   const key = getConfig().server.apiKey;
   const h = req.headers.authorization || '';
   const given = h.startsWith('Bearer ') ? h.slice(7) : (req.headers['x-api-key'] || req.query.api_key);
-  if (given && key && crypto.timingSafeEqual(Buffer.from(String(given)), Buffer.from(key))) return next();
-  if (given && given.length !== key.length) return res.status(401).json({ error: 'API key inválida' });
-  return res.status(401).json({ error: 'Falta API key (Authorization: Bearer <key> o X-Api-Key)' });
+  if (!given) return res.status(401).json({ error: 'Falta API key (Authorization: Bearer <key> o X-Api-Key)' });
+  const a = Buffer.from(String(given)), b = Buffer.from(key || '');
+  if (a.length === b.length && crypto.timingSafeEqual(a, b)) return next();
+  return res.status(401).json({ error: 'API key inválida' });
 }
 
 const wrap = (fn) => (req, res) => Promise.resolve(fn(req, res)).then((r) => { if (r === undefined) return; if (r && r.image) { res.type(r.mime || 'image/png'); res.set('X-Image-Width', String(r.width)); res.set('X-Image-Height', String(r.height)); return res.send(r.image); } res.json(r); })

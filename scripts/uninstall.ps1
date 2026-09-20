@@ -4,7 +4,7 @@ $ErrorActionPreference = 'Continue'
 $InstallDir = Split-Path -Parent $PSScriptRoot
 Write-Host "Desinstalando TCLLM de $InstallDir"
 Unregister-ScheduledTask -TaskName 'TCLLM' -Confirm:$false -ErrorAction SilentlyContinue
-Get-CimInstance Win32_Process -Filter "Name='node.exe'" | Where-Object { $_.CommandLine -match 'tcllm\.js|@playwright[\/]mcp[\/]cli\.js.*--port 8932' } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }
+Get-CimInstance Win32_Process | Where-Object { ($_.ExecutablePath -and $_.ExecutablePath.StartsWith($InstallDir, [StringComparison]::OrdinalIgnoreCase)) -or ($_.CommandLine -and $_.CommandLine.IndexOf($InstallDir, [StringComparison]::OrdinalIgnoreCase) -ge 0) } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }
 $userPath = [Environment]::GetEnvironmentVariable('Path', 'User')
 [Environment]::SetEnvironmentVariable('Path', (($userPath -split ';') | Where-Object { $_ -and $_ -ne $InstallDir }) -join ';', 'User')
 if ($Purge) { Remove-Item "$env:USERPROFILE\.tcllm" -Recurse -Force -ErrorAction SilentlyContinue }

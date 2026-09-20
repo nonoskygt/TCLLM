@@ -18,12 +18,14 @@ class PlaywrightSupervisor {
   constructor() { this.proc = null; this.restarts = 0; this.startedAt = null; this.lastExit = null; this.stopping = false; this.client = null; this.tools = null; this.events = []; }
 
   get cfg() { return getConfig().playwright; }
-  get url() { return `http://${this.cfg.host}:${this.cfg.port}/mcp`; }
+  /** Puerto efectivo: el configurado, o el siguiente libre si estaba ocupado por algo ajeno. */
+  get port() { return this.effectivePort || this.cfg.port; }
+  get url() { return `http://${this.cfg.host}:${this.port}/mcp`; }
 
   args() {
     const c = this.cfg;
-    const a = ['--port', String(c.port), '--host', c.host, '--browser', c.browser];
-    const hosts = [`localhost:${c.port}`, `127.0.0.1:${c.port}`, ...(c.allowedHosts || [])];
+    const a = ['--port', String(this.port), '--host', c.host, '--browser', c.browser];
+    const hosts = [`localhost:${this.port}`, `127.0.0.1:${this.port}`, ...(c.allowedHosts || [])];
     a.push('--allowed-hosts', hosts.join(','));
     if (c.isolated) a.push('--isolated');
     if (c.headless) a.push('--headless');
@@ -33,10 +35,22 @@ class PlaywrightSupervisor {
     return [...a, ...(c.extraArgs || [])];
   }
 
-  start() {
+  async start() {
     if (!this.cfg.enabled) { L.info('Playwright MCP deshabilitado en config'); return; }
     if (this.proc) return;
     this.stopping = false;
+    // Si ya hay algo escuchando en el puerto (p.ej. un Playwright MCP externo o huérfano), lo adoptamos en vez de morir en bucle.
+    this.effectivePort = null;
+    if (await this.tcpCheck()) {
+      try { await this.listTools(); this.adopted = true; L.warn(`puerto ${this.cfg.port} ya tiene un Playwright MCP: adoptado (no lo gestiona TCLLM)`); return; }
+      catch (e) {
+        this._dropClient();
+        L.warn(`puerto ${this.cfg.port} ocupado por otro programa (${(e.message || '').split(/\r?\n/)[0].slice(0, 80)}); busco un puerto libre`);
+        for (let p = this.cfg.port + 1; p < this.cfg.port + 100; p++) { this.effectivePort = p; if (!await this.tcpCheck()) break; }
+        L.warn(`Playwright MCP usará el puerto ${this.port}`);
+      }
+    }
+    this.adopted = false;
     const args = this.args();
     const p = spawn(process.execPath, [CLI, ...args], { stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true, env: { ...process.env, PW_MCP: '1' } });
     this.proc = p; this.startedAt = Date.now(); windows.setBrowserOwner(p.pid);
@@ -49,7 +63,7 @@ class PlaywrightSupervisor {
       if (this.stopping) return L.info('Playwright MCP detenido');
       this.restarts++;
       L.warn(`Playwright MCP terminó (code ${code}); reinicio en ${this.cfg.restartDelayMs} ms (reinicio #${this.restarts})`);
-      setTimeout(() => this.start(), this.cfg.restartDelayMs);
+      setTimeout(() => { this.start().catch(e => L.error('restart: ' + e.message)); }, this.cfg.restartDelayMs);
     });
   }
 
@@ -60,11 +74,11 @@ class PlaywrightSupervisor {
     await new Promise((resolve) => { p.once('exit', resolve); p.kill(); setTimeout(() => { try { p.kill('SIGKILL'); } catch {} resolve(); }, 5000); });
   }
 
-  async restart() { await this.stop(); this.restarts = 0; this.start(); await this.waitListening(30000); return this.status(); }
+  async restart() { await this.stop(); this.restarts = 0; await this.start(); await this.waitListening(30000); return this.status(); }
 
   tcpCheck(timeout = 2000) {
     return new Promise((resolve) => {
-      const s = net.connect({ host: this.cfg.host, port: this.cfg.port });
+      const s = net.connect({ host: this.cfg.host, port: this.port });
       const done = (ok) => { s.destroy(); resolve(ok); };
       s.once('connect', () => done(true)); s.once('error', () => done(false)); s.setTimeout(timeout, () => done(false));
     });
@@ -109,8 +123,8 @@ class PlaywrightSupervisor {
     if (listening) { try { toolCount = (await this.listTools()).length; mcpOk = true; } catch (e) { L.debug('mcp check: ' + e.message); } }
     const browserWindows = listening ? (await windows.list().catch(() => [])).filter(w => w.kind === 'browser') : [];
     return {
-      enabled: this.cfg.enabled, running: !!this.proc, pid: this.proc?.pid || null, listening, mcpOk, toolCount,
-      url: this.url, browser: this.cfg.browser, isolated: this.cfg.isolated, restarts: this.restarts,
+      enabled: this.cfg.enabled, running: !!this.proc, adopted: !!this.adopted, pid: this.proc?.pid || null, listening, mcpOk, toolCount,
+      url: this.url, port: this.port, configuredPort: this.cfg.port, browser: this.cfg.browser, isolated: this.cfg.isolated, restarts: this.restarts,
       uptimeMs: this.startedAt && this.proc ? Date.now() - this.startedAt : 0, lastExit: this.lastExit,
       windows: browserWindows.map(w => ({ hwnd: w.hwnd, title: w.title, visible: w.visible })),
     };

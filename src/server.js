@@ -52,7 +52,7 @@ export async function startServer() {
   L.info(`escuchando en http://${cfg.server.host}:${cfg.server.port}  (panel /, API /api, MCP /mcp)`);
 
   bridge.start().catch(e => L.warn('bridge: ' + e.message));
-  playwright.start();
+  playwright.start().catch(e => L.warn('playwright: ' + e.message));
   services.startMonitor();
 
   const shutdown = async () => { L.info('apagando...'); services.stopMonitor(); await playwright.stop(); bridge.stop(); server.close(); setTimeout(() => process.exit(0), 500); };
