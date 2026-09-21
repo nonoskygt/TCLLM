@@ -6,6 +6,7 @@ $InstallDir = Split-Path -Parent $PSScriptRoot
 if (-not (Test-Path -LiteralPath "$InstallDir\bin\tcllm.js") -or -not (Test-Path -LiteralPath "$InstallDir\scripts\start-hidden.vbs")) { throw "$InstallDir no parece una instalacion de TCLLM (ejecuta el uninstall.ps1 de la carpeta instalada, no del paquete)." }
 Write-Host "Desinstalando TCLLM de $InstallDir"
 Unregister-ScheduledTask -TaskName 'TCLLM' -Confirm:$false -ErrorAction SilentlyContinue
+Unregister-ScheduledTask -TaskName 'TCLLM watchdog' -Confirm:$false -ErrorAction SilentlyContinue   # instalaciones antiguas con tarea watchdog aparte
 # Procesos que corren desde la instalacion (node del servidor, Playwright MCP, bridge PowerShell), sin matarnos a nosotros ni a nuestro padre
 $parentPid = (Get-CimInstance Win32_Process -Filter "ProcessId=$PID").ParentProcessId
 $procs = Get-CimInstance Win32_Process | Where-Object { $_.ProcessId -ne $PID -and $_.ProcessId -ne $parentPid -and (($_.ExecutablePath -and $_.ExecutablePath.StartsWith($InstallDir, [StringComparison]::OrdinalIgnoreCase)) -or ($_.CommandLine -and $_.CommandLine.IndexOf($InstallDir, [StringComparison]::OrdinalIgnoreCase) -ge 0)) }

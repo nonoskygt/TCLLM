@@ -17,34 +17,53 @@ class Bridge {
     this.starting = new Promise((resolve, reject) => {
       const p = spawn('powershell.exe', ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', SCRIPT], { stdio: ['pipe', 'pipe', 'pipe'], windowsHide: true });
       this.proc = p;
-      const rl = readline.createInterface({ input: p.stdout });
-      rl.on('line', (line) => {
-        let msg; try { msg = JSON.parse(line); } catch { return L.debug('línea no JSON del bridge: ' + line); }
-        const pend = this.pending.get(msg.id);
-        if (!pend) return;
-        this.pending.delete(msg.id);
-        clearTimeout(pend.timer);
-        msg.ok ? pend.resolve(msg.result) : pend.reject(new Error(msg.error || 'bridge error'));
-      });
-      p.stderr.on('data', (d) => L.warn('stderr: ' + String(d).trim().slice(0, 300)));
-      p.on('exit', (code) => {
-        L.warn(`bridge terminó (code ${code})`);
-        this.proc = null; this.starting = null;
-        for (const [, pend] of this.pending) pend.reject(new Error('bridge terminó'));
-        this.pending.clear();
-      });
+      this._wire(p);
+      p.once('error', (e) => reject(e));
       // Primer ping: Add-Type tarda un par de segundos la primera vez.
       this._send({ op: 'ping' }, 30000).then(() => { this.starting = null; L.info('bridge PowerShell listo'); resolve(); }).catch(reject);
     });
     return this.starting;
   }
 
+  /** Handlers del proceso sidecar. Un pipe roto (el sidecar murió con una escritura en vuelo) emite 'error' en stdin:
+   *  sin listener sería un uncaughtException que tumba todo TCLLM (pasó el 2026-09-21 con un apagado abortado). */
+  _wire(p) {
+    const rl = readline.createInterface({ input: p.stdout });
+    rl.on('line', (line) => {
+      let msg; try { msg = JSON.parse(line); } catch { return L.debug('línea no JSON del bridge: ' + line); }
+      const pend = this.pending.get(msg.id);
+      if (!pend) return;
+      this.pending.delete(msg.id);
+      clearTimeout(pend.timer);
+      msg.ok ? pend.resolve(msg.result) : pend.reject(new Error(msg.error || 'bridge error'));
+    });
+    p.stdin.on('error', (e) => { L.warn(`stdin: ${e.message}`); this._failAll(new Error(`bridge no responde (${e.code || e.message})`)); });
+    p.stdout.on('error', (e) => L.warn(`stdout: ${e.message}`));
+    p.stderr.on('error', (e) => L.warn(`stderr: ${e.message}`));
+    p.stderr.on('data', (d) => L.warn('stderr: ' + String(d).trim().slice(0, 300)));
+    p.on('error', (e) => { L.error(`no se pudo lanzar el bridge: ${e.message}`); if (this.proc === p) { this.proc = null; this.starting = null; } this._failAll(e); });
+    p.on('exit', (code) => {
+      L.warn(`bridge terminó (code ${code})`);
+      if (this.proc === p) { this.proc = null; this.starting = null; }
+      this._failAll(new Error('bridge terminó'));
+    });
+  }
+
+  _failAll(err) {
+    for (const [, pend] of this.pending) { clearTimeout(pend.timer); pend.reject(err); }
+    this.pending.clear();
+  }
+
   _send(req, timeoutMs = 20000) {
     return new Promise((resolve, reject) => {
+      const p = this.proc;
+      if (!p || !p.stdin || p.stdin.destroyed) return reject(new Error('bridge no está corriendo'));
       const id = this.nextId++;
       const timer = setTimeout(() => { this.pending.delete(id); reject(new Error(`bridge timeout (${req.op})`)); }, timeoutMs);
       this.pending.set(id, { resolve, reject, timer });
-      this.proc.stdin.write(JSON.stringify({ id, ...req }) + '\n');
+      const fail = (e) => { if (this.pending.delete(id)) { clearTimeout(timer); reject(e); } };
+      try { p.stdin.write(JSON.stringify({ id, ...req }) + '\n', (e) => { if (e) fail(e); }); }
+      catch (e) { fail(e); }
     });
   }
 

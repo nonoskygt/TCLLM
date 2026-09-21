@@ -1,5 +1,18 @@
 # Changelog
 
+## Sin publicar
+
+- **Watchdog en la tarea programada.** La tarea `TCLLM` tiene ahora dos disparadores: al iniciar sesión y cada 5 minutos.
+  Si el proceso muere sin que se cierre la sesión (incidente 2026-09-21: un "Apagar" abortado desde el menú Inicio mató
+  los procesos, pero el logon no se repitió y nada relanzó TCLLM), el segundo disparador lo levanta; con
+  `MultipleInstances=IgnoreNew` no crea duplicados. `RestartCount` no cubría este caso.
+- **El bridge PowerShell ya no tumba el servidor.** Una escritura en vuelo cuando el sidecar muere emitía `error` en su
+  stdin sin listener → `uncaughtException: write EPIPE` y TCLLM caía entero. Ahora se registra, se rechazan las
+  peticiones pendientes y el sidecar se relanza en la siguiente llamada. Test: `node test/bridge-epipe.mjs`.
+- Instalador: si la tarea `TCLLM` existente pertenece a Administradores (fue creada desde una consola elevada) y no se
+  puede actualizar sin elevar, lo dice claramente en vez de fallar con "Acceso denegado". El desinstalador borra también
+  una tarea `TCLLM watchdog` aparte si existe.
+
 ## 0.2.1 — 2026-09-20
 
 - **Firefox es el navegador por defecto.** El instalador descarga la build de Firefox de Playwright (~100 MB) durante la instalación

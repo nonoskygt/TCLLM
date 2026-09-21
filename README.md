@@ -29,7 +29,8 @@ Descarga desde [Releases](https://github.com/nonoskygt/TCLLM/releases/latest). N
   (o `powershell -ExecutionPolicy Bypass -File scripts\install.ps1`).
 
 El instalador copia TCLLM a `%LOCALAPPDATA%\TCLLM`, crea `%USERPROFILE%\.tcllm\config.json` con una API key,
-registra la tarea programada `TCLLM` (arranca oculto al iniciar sesión) y la lanza. Descarga la build de **Firefox** de Playwright
+registra la tarea programada `TCLLM` (arranca oculto al iniciar sesión; un segundo disparador cada 5 min lo relanza si el
+proceso murió sin cerrar sesión) y la lanza. Descarga la build de **Firefox** de Playwright
 (navegador por defecto; `-NoFirefox` para omitirlo y usar Chrome/Edge). Si falta VirtualBox lo instala con winget (pide UAC).
 Todo por usuario, sin admin salvo VirtualBox.
 

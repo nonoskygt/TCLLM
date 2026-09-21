@@ -113,10 +113,19 @@ if (Get-Command wscript.exe -ErrorAction SilentlyContinue) {
     # Windows sin VBScript (Feature on Demand retirada): consola oculta con conhost --headless
     $action = New-ScheduledTaskAction -Execute 'conhost.exe' -Argument "--headless `"$node`" `"$InstallDir\bin\tcllm.js`" start" -WorkingDirectory $InstallDir
 }
-$trigger = New-ScheduledTaskTrigger -AtLogOn -User $env:USERNAME
-$settings = New-ScheduledTaskSettingsSet -ExecutionTimeLimit ([TimeSpan]::Zero) -RestartCount 3 -RestartInterval (New-TimeSpan -Minutes 1) -StartWhenAvailable -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries
-Register-ScheduledTask -TaskName 'TCLLM' -Action $action -Trigger $trigger -Settings $settings -Description "TCLLM $ver - Total Control for LLMs (API + MCP + panel)" -Force | Out-Null
-Write-Host "Tarea programada 'TCLLM' registrada (arranca al iniciar sesion)."
+# Dos disparadores: al iniciar sesion, y cada 5 min como watchdog. El segundo relanza TCLLM si el proceso murio sin que
+# se cerrara la sesion (p.ej. un apagado abortado mata los procesos pero el logon no se repite); con MultipleInstances=IgnoreNew
+# no crea duplicados mientras la tarea sigue corriendo. RestartCount no sirve para esto: solo actua si la tarea no pudo lanzarse.
+$triggers = @((New-ScheduledTaskTrigger -AtLogOn -User $env:USERNAME), (New-ScheduledTaskTrigger -Once -At (Get-Date).AddMinutes(-1) -RepetitionInterval (New-TimeSpan -Minutes 5)))
+$settings = New-ScheduledTaskSettingsSet -ExecutionTimeLimit ([TimeSpan]::Zero) -MultipleInstances IgnoreNew -StartWhenAvailable -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries
+try {
+    Register-ScheduledTask -TaskName 'TCLLM' -Action $action -Trigger $triggers -Settings $settings -Description "TCLLM $ver - Total Control for LLMs (API + MCP + panel)" -Force -ErrorAction Stop | Out-Null
+} catch {
+    # Una tarea creada desde una consola elevada pertenece a Administradores y no se puede actualizar sin elevar
+    if (Get-ScheduledTask -TaskName 'TCLLM' -ErrorAction SilentlyContinue) { throw "No se pudo actualizar la tarea programada 'TCLLM' ($($_.Exception.Message)). Fue creada desde una consola elevada: ejecuta este instalador como administrador, o borrala (Unregister-ScheduledTask TCLLM) y vuelve a instalar." }
+    throw
+}
+Write-Host "Tarea programada 'TCLLM' registrada (arranca al iniciar sesion; watchdog cada 5 min)."
 
 # 8. Arrancar ahora
 if (-not $NoStart) {
