@@ -1,12 +1,20 @@
 ---
 name: tcllm
-description: "Use when a task needs to control a VirtualBox virtual machine (start/stop/restart, screenshots, mouse, keyboard, run PowerShell inside, files, snapshots) or a Playwright-controlled browser through TCLLM. Triggers: 'la VM', 'máquina virtual', 'VirtualBox', 'TCLLM', 'dentro de Windows', 'navegador'."
+description: "Use when a task needs to control a VirtualBox virtual machine (start/stop/restart, screenshots, mouse, keyboard, run PowerShell inside, files, snapshots) or a Playwright browser through TCLLM, or to switch which browser the agents use. Triggers: 'la VM', 'máquina virtual', 'VirtualBox', 'TCLLM', 'dentro de Windows', 'navegador', 'abrí/usá chrome', 'abrí firefox', 'abrí brave', 'cambiá el navegador', 'abrí Windows', 'abrí la VM'."
 ---
 
 # TCLLM — control total de VMs y navegador para agentes
 
 TCLLM corre en `http://127.0.0.1:7777` (panel: `http://127.0.0.1:7777/`). Úsalo por **MCP** (servidor `tcllm`, tools `vm_*`, `browser_*`,
 `windows_*`, `services_*`) o por **REST** (`http://127.0.0.1:7777/api/openapi.json`, auth `Authorization: Bearer <apiKey>`).
+
+## Comandos rápidos (lo que pide el usuario → qué tool llamar)
+- **"abrí / usá / cambiá a chrome"** → `browser_use { "browser": "chrome" }`. Igual con `firefox`, `brave`, `edge` (=`msedge`), `chromium`, `webkit`.
+- **"abrí / encendé Windows / la VM / la máquina"** → `vm_list` para ver el nombre (p.ej. `Win11`), luego `vm_start { "vm": "Win11" }`; `vm_show { "vm": "Win11" }` para verla.
+- **"mostrá / ocultá el navegador"** → `browser_windows_show` / `browser_windows_hide`. **"mostrá / ocultá la VM"** → `vm_show` / `vm_hide`.
+- **"¿qué navegadores hay?" / "cuál está activo"** → `browser_list`.
+
+> Un solo Playwright compartido: `browser_use` lo **relanza** y afecta a todos los agentes conectados (se pierden las pestañas). Cámbialo solo cuando te lo pidan; si el navegador ya es el activo, no hace nada. Chrome, Edge y Brave ya vienen instalados; Firefox/Chromium/WebKit se bajan con `browser_install`.
 
 ## Flujo con una VM
 1. `vm_list` → estado. Si no está `running`: `vm_start` (tarda 1-5 min; espera solo).
@@ -19,7 +27,9 @@ TCLLM corre en `http://127.0.0.1:7777` (panel: `http://127.0.0.1:7777/`). Úsalo
 - Reiniciar Windows: **solo** `vm_restart` (vigila el cuelgue de VirtualBox sobre Hyper-V y resetea). Nunca `shutdown /r` a mano.
 - Si la VM está en negro y no responde: `vm_reset`.
 - `vm_show` / `vm_hide` muestran u ocultan su ventana en el host; `browser_windows_show/hide` las del navegador.
-- Navegador: tools `browser_*` (navigate, snapshot, click, type, …) = Playwright MCP vía TCLLM.
+- Navegador: tools `browser_*` (navigate, snapshot, click, type, …) = Playwright MCP vía TCLLM. `browser_list` dice qué navegadores hay
+  (Chrome, Edge, Brave, Firefox, Chromium, WebKit) y cuál está activo; `browser_use` cambia de navegador (relanza Playwright: se pierden las pestañas);
+  `browser_install` descarga Firefox/Chromium/WebKit (100-200 MB, tarda).
 
 ## Tools
 - `vm_list`: Lista las máquinas virtuales de VirtualBox con su estado (running/poweroff/saved), snapshots y si TCLLM puede controlarlas por dentro.
@@ -50,6 +60,9 @@ TCLLM corre en `http://127.0.0.1:7777` (panel: `http://127.0.0.1:7777/`). Úsalo
 - `windows_list`: Lista las ventanas gestionables del host: las de las VMs (VirtualBoxVM) y las del navegador de Playwright, con su hwnd y visibilidad.
 - `window_show`: Muestra (y trae al frente) una ventana por hwnd.
 - `window_hide`: Oculta una ventana por hwnd (el proceso sigue).
+- `browser_list`: Navegadores disponibles para Playwright (Chrome, Edge, Brave, Chromium, Firefox, WebKit): cuáles están instalados y cuál está activo.
+- `browser_use`: Cambia el navegador que controla Playwright: se guarda en config y se relanza el Playwright MCP, así que TODOS los agentes conectados pierden sus pestañas. Si ya es el activo no hace nada. Firefox/Chromium/WebKit deben estar instalados (browser_install).
+- `browser_install`: Descarga e instala una build de Playwright (chromium, firefox o webkit; 100-200 MB). BLOQUEA hasta terminar (de segundos a varios minutos según la conexión); si tu cliente corta por timeout la descarga sigue: vuelve a llamar, es idempotente. Chrome/Edge/Brave se instalan desde su web.
 - `browser_windows_show`: Muestra las ventanas del navegador controlado por Playwright.
 - `browser_windows_hide`: Oculta las ventanas del navegador controlado por Playwright (sigue funcionando).
 - `services_status`: Estado de todos los servicios: TCLLM, VirtualBox, cada VM, Playwright MCP (navegador) y el host (CPU/RAM/discos).

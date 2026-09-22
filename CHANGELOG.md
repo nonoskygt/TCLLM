@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.3.2 - 2026-09-21
+
+- **Skill: seleccionar navegador por instruccion.** La skill `tcllm` ahora mapea lenguaje natural a tools para que
+  los agentes obedezcan: "abri/usa chrome|firefox|brave|edge" -> `browser_use`; "abri Windows / la VM" -> `vm_list`+`vm_start`+`vm_show`;
+  "mostra/oculta el navegador|la VM" -> `browser_windows_show/hide` / `vm_show/hide`. Nuevos triggers en la descripcion.
+
 ## 0.3.1 — 2026-09-21
 
 - **Panel → Conexiones**: nueva sección para gestionar quién accede al Playwright MCP, en dos capas.

@@ -64,13 +64,21 @@ export function skillMarkdown() {
   const list = tools.map(t => `- \`${t.name}\`: ${t.description}`).join('\n');
   return `---
 name: tcllm
-description: "Use when a task needs to control a VirtualBox virtual machine (start/stop/restart, screenshots, mouse, keyboard, run PowerShell inside, files, snapshots) or a Playwright-controlled browser through TCLLM. Triggers: 'la VM', 'máquina virtual', 'VirtualBox', 'TCLLM', 'dentro de Windows', 'navegador'."
+description: "Use when a task needs to control a VirtualBox virtual machine (start/stop/restart, screenshots, mouse, keyboard, run PowerShell inside, files, snapshots) or a Playwright browser through TCLLM, or to switch which browser the agents use. Triggers: 'la VM', 'máquina virtual', 'VirtualBox', 'TCLLM', 'dentro de Windows', 'navegador', 'abrí/usá chrome', 'abrí firefox', 'abrí brave', 'cambiá el navegador', 'abrí Windows', 'abrí la VM'."
 ---
 
 # TCLLM — control total de VMs y navegador para agentes
 
 TCLLM corre en \`${url}\` (panel: \`${url}/\`). Úsalo por **MCP** (servidor \`tcllm\`, tools \`vm_*\`, \`browser_*\`,
 \`windows_*\`, \`services_*\`) o por **REST** (\`${url}/api/openapi.json\`, auth \`Authorization: Bearer <apiKey>\`).
+
+## Comandos rápidos (lo que pide el usuario → qué tool llamar)
+- **"abrí / usá / cambiá a chrome"** → \`browser_use { "browser": "chrome" }\`. Igual con \`firefox\`, \`brave\`, \`edge\` (=\`msedge\`), \`chromium\`, \`webkit\`.
+- **"abrí / encendé Windows / la VM / la máquina"** → \`vm_list\` para ver el nombre (p.ej. \`Win11\`), luego \`vm_start { "vm": "Win11" }\`; \`vm_show { "vm": "Win11" }\` para verla.
+- **"mostrá / ocultá el navegador"** → \`browser_windows_show\` / \`browser_windows_hide\`. **"mostrá / ocultá la VM"** → \`vm_show\` / \`vm_hide\`.
+- **"¿qué navegadores hay?" / "cuál está activo"** → \`browser_list\`.
+
+> Un solo Playwright compartido: \`browser_use\` lo **relanza** y afecta a todos los agentes conectados (se pierden las pestañas). Cámbialo solo cuando te lo pidan; si el navegador ya es el activo, no hace nada. Chrome, Edge y Brave ya vienen instalados; Firefox/Chromium/WebKit se bajan con \`browser_install\`.
 
 ## Flujo con una VM
 1. \`vm_list\` → estado. Si no está \`running\`: \`vm_start\` (tarda 1-5 min; espera solo).
