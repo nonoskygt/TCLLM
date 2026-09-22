@@ -60,7 +60,7 @@ Desinstalar: `%LOCALAPPDATA%\TCLLM\scripts\uninstall.ps1` (`-Purge` borra tambi�
   "vms": {
     "MiVM": { "user": "<usuario del guest>", "password": "<contraseña>", "sshPort": 2222, "sshKey": "C:\\Users\\<tú>\\.ssh\\id_ed25519" }
   },
-  "playwright": { "enabled": true, "port": 8932, "browser": "firefox", "isolated": true, "storageState": "", "allowedHosts": [], "allowAnyHost": false, "allowedNetworks": [] },
+  "playwright": { "enabled": true, "port": 8932, "browser": "firefox", "sessions": "persistent", "storageState": "", "allowedHosts": [], "allowAnyHost": false, "allowedNetworks": [] },
   "monitor": { "intervalMs": 10000 },
   "watchdog": { "enabled": true }
 }
@@ -82,17 +82,38 @@ Para exponerlo a la red, en `playwright`: `"host": "0.0.0.0"`, `"port": 8931`, `
 (el servidor rechaza con 403 cualquier cabecera `Host` que no esté en la lista; `localhost:<port>` y `127.0.0.1:<port>` van siempre).
 TCLLM le habla por `127.0.0.1` (nunca por `localhost`, que en Windows puede resolver a `::1` y encontrarse con otro servidor ajeno).
 
-### Logins compartidos (`storageState`)
-Los agentes corren en contextos aislados y sin perfil (`--isolated`): no ven tus logins salvo que se los inyectes.
+### Sesiones persistentes (los logins no se pierden)
+Por defecto (`playwright.sessions: "persistent"`) cada navegador tiene **su perfil en disco** en `%USERPROFILE%\.tcllm\profiles\<navegador>`:
+
+- Lo que loguees (vos o un agente) **sigue ahí** al cerrar el navegador y al reiniciar TCLLM.
+- Al **cambiar de navegador**, TCLLM exporta las cookies y el localStorage del perfil que deja y **siembra** el del nuevo
+  (`%USERPROFILE%\.tcllm\storage-state.json` es la bolsa común portable entre motores), así que los logins te siguen de
+  Chrome a Firefox o Brave.
+- Un perfil nuevo se siembra con la bolsa común, para no empezar deslogueado.
+
+> Para que esto funcione TCLLM cierra el navegador con WM_CLOSE antes de pararlo: Chrome y Firefox solo vuelcan cookies y
+> localStorage al perfil cuando salen limpios. Las cookies **de sesión** (sin caducidad) no persisten nunca, por diseño del navegador.
+
+**Contrapartida:** un perfil en disco admite un solo contexto, así que todos los agentes conectados **comparten el navegador**
+(mismas pestañas; dos navegaciones a la vez se pisan). Si necesitás aislamiento por agente, poné `playwright.sessions: "isolated"`:
+cada cliente recibe su contexto, se inyecta `storage-state.json` al crearlo… pero nada de lo que loguees se guarda.
+
+| | `persistent` (por defecto) | `isolated` |
+|---|---|---|
+| Los logins sobreviven al cierre | sí | no |
+| Se traspasan entre navegadores | sí (automático al cambiar) | solo lo que haya en `storage-state.json` |
+| Aislamiento entre agentes | no (contexto compartido) | sí |
+
+Herramientas:
 ```
-tcllm login                                   # abre el navegador del servidor con un perfil persistente; te logueas; Enter → guarda
-tcllm login --visit https://sitio/,https://otro/ --auto    # refresco por script (localStorage solo de los orígenes visitados)
+tcllm login                                   # abre el navegador con perfil propio y guarda logins en la bolsa común
 tcllm check-login https://sitio/              # abre una sesión de agente real y dice OK / NO LOGUEADO
-node test/multi-client.mjs                    # dos agentes a la vez: aislamiento, ventanas y cookie canario
+node test/sessions.mjs                        # prueba: una cookie sobrevive al reinicio y al cambio de navegador
+node test/multi-client.mjs                    # dos agentes a la vez (según el modo: compartido o aislado)
 ```
-El estado va a `%USERPROFILE%\.tcllm\storage-state.json` (o `playwright.storageState`) y se **fusiona** con lo que hubiera
-(`--replace` para empezar de cero). El servidor lo relee en cada contexto nuevo: no hay que reiniciar nada. Contiene cookies y
-tokens de sesión reales: no lo compartas. Lo que un agente loguee durante su sesión no se guarda de vuelta.
+Panel → **Navegador → Sesiones**: modo activo, cookies y dominios de la bolsa, tamaño de cada perfil y
+**Guardar sesiones ahora** (`sessions_save` / `POST /api/sessions/save`: vuelca el perfil activo a la bolsa; reinicia el navegador).
+La bolsa contiene cookies y tokens de sesión reales: no la compartas.
 
 ## Detalles que importan
 - **VirtualBox sobre Hyper-V (NEM)**: si el host tiene Hyper-V/WSL2/Docker, VirtualBox va lento y **el reinicio de Windows dentro

@@ -35,29 +35,52 @@ console.log(`Servidor: ${BASE}`);
 const winsBefore = (await browserWindows()).length;
 console.log(`Ventanas de navegador (Playwright) antes: ${winsBefore}`);
 
+// El comportamiento depende del modo de sesiones (ver src/sessions.js):
+//   persistent -> perfil en disco compartido: los clientes comparten contexto (los logins persisten, no hay aislamiento).
+//   isolated   -> un contexto por cliente: aislamiento total, pero nada se guarda en disco.
+const PERSISTENT = (getConfig().playwright.sessions || 'persistent') === 'persistent';
+console.log(`Modo de sesiones: ${PERSISTENT ? 'persistent (contexto compartido)' : 'isolated (contexto por cliente)'}`);
+
 try {
   const [ia] = await Promise.all([a.init(), b.init()]);
   console.log(`A conectado (sesión ${a.sessionId.slice(0, 8)}...), B conectado (sesión ${b.sessionId.slice(0, 8)}...), servidor ${ia.serverInfo?.name} ${ia.serverInfo?.version}`);
   if (a.sessionId === b.sessionId) fail('las dos sesiones comparten id');
 
-  const [na, nb] = await Promise.all([
-    a.call('browser_navigate', { url: 'https://example.com/' }),
-    b.call('browser_navigate', { url: 'https://example.org/' }),
-  ]);
   const titleOf = (t) => (t.match(/Page Title: (.*)/) || [])[1] || '(sin título)';
-  console.log(`A navegó: ${titleOf(na)} | B navegó: ${titleOf(nb)}`);
-
-  const [ta, tb] = await Promise.all([a.call('browser_tabs', { action: 'list' }), b.call('browser_tabs', { action: 'list' })]);
   const tabsOf = (t) => (t.match(/^- \d+:/gm) || []).length;
-  console.log(`Pestañas que ve A: ${tabsOf(ta)} | que ve B: ${tabsOf(tb)} (cada agente solo ve las suyas)`);
-  if (tabsOf(ta) !== 1 || tabsOf(tb) !== 1) fail('un agente ve pestañas del otro: los contextos no están aislados');
-  if (/example\.org/.test(ta) || /example\.com/.test(tb)) fail('un agente ve la URL del otro');
 
-  const wins = await browserWindows();
-  console.log(`Ventanas con las dos sesiones abiertas: ${wins.length} -> ${wins.join(' | ')}`);
-  if (wins.length < winsBefore + 2) fail(`esperaba ${winsBefore + 2} ventanas visibles (2 nuevas), hay ${wins.length}`);
+  if (PERSISTENT) {
+    // Contexto compartido: dos navegaciones a la vez se pisan (ERR_ABORTED), así que van en serie.
+    const na = await a.call('browser_navigate', { url: 'https://example.com/' });
+    const nb = await b.call('browser_navigate', { url: 'https://example.org/' });
+    console.log(`A navegó: ${titleOf(na)} | B navegó: ${titleOf(nb)} (en serie: comparten contexto)`);
+    if (!/Example/.test(na) || !/Example/.test(nb)) fail('alguna navegación no cargó');
+    const ta = await a.call('browser_tabs', { action: 'list' });
+    console.log(`Pestañas visibles para ambos: ${tabsOf(ta)} (esperado: comparten las mismas)`);
+    const wins = await browserWindows();
+    console.log(`Ventanas con las dos sesiones abiertas: ${wins.length} -> ${wins.join(' | ')}`);
+    if (wins.length < 1) fail('no hay ninguna ventana de navegador visible');
+  } else {
+    const [na, nb] = await Promise.all([
+      a.call('browser_navigate', { url: 'https://example.com/' }),
+      b.call('browser_navigate', { url: 'https://example.org/' }),
+    ]);
+    console.log(`A navegó: ${titleOf(na)} | B navegó: ${titleOf(nb)}`);
+    const [ta, tb] = await Promise.all([a.call('browser_tabs', { action: 'list' }), b.call('browser_tabs', { action: 'list' })]);
+    console.log(`Pestañas que ve A: ${tabsOf(ta)} | que ve B: ${tabsOf(tb)} (cada agente solo ve las suyas)`);
+    if (tabsOf(ta) !== 1 || tabsOf(tb) !== 1) fail('un agente ve pestañas del otro: los contextos no están aislados');
+    if (/example\.org/.test(ta) || /example\.com/.test(tb)) fail('un agente ve la URL del otro');
+    const wins = await browserWindows();
+    console.log(`Ventanas con las dos sesiones abiertas: ${wins.length} -> ${wins.join(' | ')}`);
+    if (wins.length < winsBefore + 2) fail(`esperaba ${winsBefore + 2} ventanas visibles (2 nuevas), hay ${wins.length}`);
+  }
 
-  if (canaryPresent()) {
+  // El canario (pwmcp_test) es una cookie de SESIÓN (expires -1): solo tiene sentido en modo isolated, donde el
+  // storage-state se inyecta en cada contexto nuevo. En un perfil en disco las cookies de sesión no se guardan nunca
+  // (por definición), así que allí la persistencia se comprueba con test/sessions.mjs.
+  if (PERSISTENT) {
+    console.log('Modo persistent: no se comprueba el canario (es cookie de sesión). La persistencia la cubre test/sessions.mjs.');
+  } else if (canaryPresent()) {
     const cookie = await a.call('browser_evaluate', { function: '() => document.cookie' });
     const ok = cookie.includes('pwmcp_test=ok');
     console.log(`Cookie canario del storage-state en example.com: ${ok ? 'PRESENTE' : 'AUSENTE'}`);

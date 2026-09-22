@@ -11,6 +11,7 @@ import { PKG_ROOT, getConfig } from './config.js';
 import { log } from './log.js';
 import * as windows from './windows.js';
 import * as browsers from './browsers.js';
+import * as sessions from './sessions.js';
 import { saveConfig } from './config.js';
 
 const L = log('playwright');
@@ -22,6 +23,8 @@ class PlaywrightSupervisor {
   constructor() { this.proc = null; this.restarts = 0; this.startedAt = null; this.lastExit = null; this.stopping = false; this.client = null; this.tools = null; this.events = []; }
 
   get cfg() { return getConfig().playwright; }
+  /** Modo de sesiones: perfil en disco (persistente) vs contexto en memoria por cliente (aislado). */
+  get persistent() { return (this.cfg.sessions || 'persistent') === 'persistent'; }
   /** Puerto efectivo: el configurado, o el siguiente libre si estaba ocupado por algo ajeno. */
   get port() { return this.effectivePort || this.cfg.port; }
   /** Dirección a la que TCLLM se conecta. Si el servidor escucha en todas las interfaces (0.0.0.0 / ::) hay que hablarle
@@ -38,9 +41,17 @@ class PlaywrightSupervisor {
       const hosts = [`localhost:${this.port}`, `127.0.0.1:${this.port}`, ...(c.allowedHosts || [])];
       a.push('--allowed-hosts', hosts.join(','));
     }
-    if (c.isolated) a.push('--isolated');
+    if (this.persistent) {
+      // Perfil en disco: lo que se loguee sobrevive. --shared-browser-context porque un perfil solo admite un
+      // contexto: sin él, el segundo cliente MCP recibiría "Browser is already in use for <userDataDir>".
+      a.push('--user-data-dir', sessions.profileDir(c.browser), '--shared-browser-context');
+    } else {
+      if (c.isolated) a.push('--isolated');
+      // --storage-state solo vale en modo aislado (Playwright: "storage state file for isolated sessions")
+      const st = sessions.sharedFile();
+      if (c.isolated && st && fs.existsSync(st)) a.push('--storage-state', st);
+    }
     if (c.headless) a.push('--headless');
-    if (c.storageState && fs.existsSync(c.storageState)) a.push('--storage-state', c.storageState);
     if (c.freeFileDialogs) a.push('--init-page', INIT_PAGE);
     a.push('--allow-unrestricted-file-access');
     return [...a, ...(c.extraArgs || [])];
@@ -68,6 +79,15 @@ class PlaywrightSupervisor {
       }
     }
     this.adopted = false;
+    // Primer arranque con perfil nuevo: lo sembramos con la bolsa común para no empezar deslogueado.
+    if (this.persistent && !sessions.hasProfile(this.cfg.browser)) {
+      const shared = sessions.readShared();
+      if (shared.cookies.length || shared.origins.length) {
+        L.info(`perfil nuevo de ${this.cfg.browser}: sembrando ${shared.cookies.length} cookies de la bolsa común`);
+        try { await sessions.seedInto(this.cfg.browser, shared); }
+        catch (e) { L.warn(`no se pudo sembrar el perfil: ${e.message.split('\n')[0]}`); }
+      }
+    }
     const args = this.args();
     const p = spawn(process.execPath, [CLI, ...args], { stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true, env: { ...process.env, PW_MCP: '1' } });
     this.proc = p; this.startedAt = Date.now(); windows.setBrowserOwner(p.pid);
@@ -84,8 +104,37 @@ class PlaywrightSupervisor {
     });
   }
 
+  /** Cierra el navegador con WM_CLOSE (taskkill sin /F) y espera a que salga.
+   *  Imprescindible en modo persistente: Chrome/Firefox solo vuelcan cookies y localStorage al perfil al salir limpios;
+   *  si matamos el proceso del MCP (TerminateProcess) se pierde todo lo que el agente hubiera logueado. */
+  async closeBrowserGracefully(timeoutMs = 25000) {
+    const pid = this.proc?.pid;
+    if (!pid) return { closed: 0 };
+    const NAMES = "@('chrome.exe','msedge.exe','brave.exe','firefox.exe')";
+    const kids = `Get-CimInstance Win32_Process -Filter "ParentProcessId=${pid}" | Where-Object { $_.Name -in ${NAMES} }`;
+    const cmd = [
+      "$ErrorActionPreference='SilentlyContinue'",
+      `$kids = @(${kids})`,
+      'foreach ($k in $kids) { Start-Process taskkill.exe -ArgumentList @("/PID", "$($k.ProcessId)") -NoNewWindow -Wait }',
+      `$deadline = (Get-Date).AddMilliseconds(${timeoutMs})`,
+      `while ((Get-Date) -lt $deadline) { if (@(${kids}).Count -eq 0) { break }; Start-Sleep -Milliseconds 300 }`,
+      `Write-Output ("closed=" + $kids.Count + " left=" + @(${kids}).Count)`,
+    ].join('; ');
+    return new Promise((resolve) => {
+      const p = spawn('powershell.exe', ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-Command', cmd], { windowsHide: true });
+      let out = '';
+      const timer = setTimeout(() => { try { p.kill(); } catch {} resolve({ timeout: true }); }, timeoutMs + 10000);
+      p.stdout.on('data', d => out += d);
+      p.on('error', () => { clearTimeout(timer); resolve({ error: true }); });
+      p.on('exit', () => { clearTimeout(timer); const s = out.trim(); if (s) L.info(`navegador cerrado limpiamente (${s})`); resolve({ info: s }); });
+    });
+  }
+
   async stop() {
-    this.stopping = true; this._dropClient();
+    this.stopping = true;
+    // Primero el navegador (para que vuelque el perfil), luego el proceso del MCP.
+    if (this.persistent && this.proc) { try { await this.closeBrowserGracefully(); } catch (e) { L.warn(`cierre limpio del navegador: ${e.message}`); } }
+    this._dropClient();
     if (!this.proc) return;
     const p = this.proc;
     await new Promise((resolve) => { p.once('exit', resolve); p.kill(); setTimeout(() => { try { p.kill('SIGKILL'); } catch {} resolve(); }, 5000); });
@@ -103,13 +152,38 @@ class PlaywrightSupervisor {
     if (!d[id].installed && !executablePath) throw new Error(`${d[id].title} no está instalado.${d[id].installable ? ' Instálalo con browser_install / POST /api/browser/install.' : ''}`);
     const cfg = getConfig();
     if (id === cfg.playwright.browser && (executablePath || '') === (cfg.playwright.executablePath || '')) return { browser: id, unchanged: true, status: await this.status() };
+    const from = cfg.playwright.browser;
     cfg.playwright.browser = id; cfg.playwright.executablePath = executablePath || ''; saveConfig(cfg);
     L.info(`cambiando navegador a ${id}`);
     if (this.adopted) return { browser: id, applied: false, note: `hay un Playwright MCP externo en el puerto ${this.port} que TCLLM adoptó; párralo (o cambia playwright.port) para que TCLLM lance el suyo con ${id}`, status: await this.status() };
-    return { browser: id, applied: true, status: await this.restart() };
+    // Traspaso de sesiones: con el MCP parado el perfil está libre, así que exportamos el que dejamos y sembramos el nuevo.
+    await this.stop();
+    let transfer = null;
+    if (this.persistent) {
+      try { transfer = await sessions.transfer(from, id); }
+      catch (e) { transfer = { error: e.message }; L.warn(`traspaso de sesiones ${from} -> ${id}: ${e.message}`); }
+    }
+    this.restarts = 0;
+    await this.start();
+    await this.waitListening(30000);
+    return { browser: id, applied: true, sessions: transfer, status: await this.status() };
   }
 
   async restart() { await this.stop(); this.restarts = 0; await this.start(); await this.waitListening(30000); return this.status(); }
+
+  /** Vuelca a la bolsa común los logins del perfil activo (hay que parar el navegador: el perfil está bloqueado). */
+  async saveSessions() {
+    if (!this.persistent) return { saved: false, note: 'sessions="isolated": no hay perfil en disco que guardar (cambia playwright.sessions a "persistent")' };
+    const id = this.cfg.browser;
+    await this.stop();
+    let out;
+    try { out = await sessions.saveFrom(id); }
+    catch (e) { out = { saved: false, error: e.message }; L.warn(`guardar sesiones de ${id}: ${e.message}`); }
+    this.restarts = 0;
+    await this.start();
+    await this.waitListening(30000);
+    return { browser: id, ...out, status: await this.status() };
+  }
 
   tcpCheck(timeout = 2000) {
     return new Promise((resolve) => {
@@ -159,7 +233,8 @@ class PlaywrightSupervisor {
     const browserWindows = listening ? (await windows.list().catch(() => [])).filter(w => w.kind === 'browser') : [];
     return {
       enabled: this.cfg.enabled, running: !!this.proc, adopted: !!this.adopted, adoptedNote: this.adopted ? 'Playwright MCP externo: TCLLM no controla su navegador ni puede cambiarlo' : undefined, pid: this.proc?.pid || null, listening, mcpOk, toolCount,
-      url: this.url, host: this.cfg.host, port: this.port, configuredPort: this.cfg.port, allowedHosts: this.cfg.allowedHosts || [], storageState: this.cfg.storageState || '', browser: this.cfg.browser, browserTitle: browsers.CATALOG[this.cfg.browser]?.title || this.cfg.browser, isolated: this.cfg.isolated, restarts: this.restarts,
+      url: this.url, host: this.cfg.host, port: this.port, configuredPort: this.cfg.port, allowedHosts: this.cfg.allowedHosts || [], storageState: sessions.sharedFile(), browser: this.cfg.browser,
+      sessions: this.persistent ? 'persistent' : 'isolated', profileDir: this.persistent ? sessions.profileDir(this.cfg.browser) : null, browserTitle: browsers.CATALOG[this.cfg.browser]?.title || this.cfg.browser, isolated: this.cfg.isolated, restarts: this.restarts,
       uptimeMs: this.startedAt && this.proc ? Date.now() - this.startedAt : 0, lastExit: this.lastExit,
       windows: browserWindows.map(w => ({ hwnd: w.hwnd, title: w.title, visible: w.visible })),
     };

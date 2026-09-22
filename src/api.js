@@ -70,6 +70,10 @@ export function apiRouter() {
   r.get('/browser/tools', wrap(() => browserTools()));
   r.post('/browser/tools/:name', wrap(async (req) => { const n = req.params.name.startsWith('browser_') ? req.params.name : 'browser_' + req.params.name; return callTool(n, req.body || {}); }));
 
+  // --- sesiones persistentes (logins) ---
+  r.get('/sessions', wrap(() => callTool('sessions_status')));
+  r.post('/sessions/save', wrap(() => callTool('sessions_save')));
+
   // --- acceso / conexiones (cabecera Host + firewall por red de cliente) ---
   r.get('/access', wrap(async () => { const a = await import('./access.js'); return a.status(); }));
   r.post('/access/hosts', wrap(async (req) => { const a = await import('./access.js'); return a.setHosts(req.body || {}); }));

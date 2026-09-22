@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.4.0 - 2026-09-22
+
+- **Sesiones persistentes (nueva feature).** Los logins dejan de perderse:
+  - `playwright.sessions: "persistent"` (nuevo valor por defecto): cada navegador usa un perfil en disco
+    (`~/.tcllm/profiles/<navegador>`) en vez de un contexto en memoria, asi que lo que loguees sigue ahi al cerrar.
+  - **Traspaso entre navegadores**: al cambiar de navegador TCLLM exporta cookies y localStorage del perfil que deja,
+    los fusiona en la bolsa comun (`~/.tcllm/storage-state.json`) y siembra el perfil del nuevo. Un perfil nuevo se
+    siembra con la bolsa, para no empezar deslogueado.
+  - **Cierre limpio del navegador** (WM_CLOSE) antes de parar el Playwright MCP: Chrome y Firefox solo vuelcan cookies
+    y localStorage al perfil cuando salen limpios; matando el proceso se perdia todo (causa raiz del bug).
+  - Nuevo `src/sessions.js`, tools `sessions_status` y `sessions_save`, rutas `GET /api/sessions` y
+    `POST /api/sessions/save`, y seccion **Sesiones** en el panel (modo, bolsa, perfiles, guardar ahora).
+  - Contrapartida documentada: un perfil en disco admite un solo contexto, asi que los agentes comparten navegador.
+    `playwright.sessions: "isolated"` restaura el aislamiento por agente (sin persistencia).
+  - Tests: `test/sessions.mjs` (persiste tras reiniciar y al cambiar de navegador) y `test/multi-client.mjs`
+    (consciente del modo).
+
 ## 0.3.2 - 2026-09-21
 
 - **Skill: seleccionar navegador por instruccion.** La skill `tcllm` ahora mapea lenguaje natural a tools para que

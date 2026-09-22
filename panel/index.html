@@ -89,6 +89,14 @@
     <div class="row wrap">
       <button data-act="browser-show">Mostrar ventanas</button><button data-act="browser-hide">Ocultar ventanas</button><button data-act="browser-restart" class="warn">Reiniciar Playwright MCP</button>
     </div>
+    <h2>Sesiones (logins)</h2>
+    <p class="muted">En modo <b>persistente</b> cada navegador tiene su perfil en disco: lo que loguees sigue ahí al cerrar, y al cambiar de navegador TCLLM traspasa cookies y localStorage. A cambio, todos los agentes comparten el mismo contexto. En modo <b>aislado</b> cada agente va por su cuenta, pero no se guarda nada.</p>
+    <div id="sess-box" class="muted">…</div>
+    <div class="row wrap" style="margin-top:8px">
+      <button id="sess-save">Guardar sesiones ahora</button>
+      <span class="muted">exporta el perfil activo a la bolsa común (reinicia el navegador)</span>
+    </div>
+
     <h2>Navegadores</h2>
     <p class="muted">Playwright funciona con Chrome, Edge y Brave (los instalados en el sistema) y con sus propias builds de Chromium, Firefox y WebKit (se descargan aquí). Cambiar de navegador relanza el Playwright MCP.</p>
     <div class="grid" id="br-browsers"></div>

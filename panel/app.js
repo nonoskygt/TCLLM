@@ -121,12 +121,33 @@ $('#vm-run').onclick = async () => { $('#vm-out').textContent = '…'; try { con
 pageLoaders.browser = async () => {
   const b = await api('/browser');
   $('#browser-cards').innerHTML = `<div class="card"><h4>Estado</h4><div class="big">${b.listening ? (b.mcpOk ? 'activo' : 'escuchando') : b.enabled ? 'arrancando…' : 'deshabilitado'}</div><div class="muted">pid ${b.pid || '-'} · ${fmtMs(b.uptimeMs)} · reinicios ${b.restarts}</div></div>
-    <div class="card"><h4>Endpoint MCP (directo)</h4><div class="big" style="font-size:14px">${esc(b.url)}</div><div class="muted">navegador ${esc(b.browser)} · ${b.isolated ? 'aislado (contexto por cliente)' : 'perfil compartido'} · ${b.toolCount ?? '?'} tools</div></div>
+    <div class="card"><h4>Endpoint MCP (directo)</h4><div class="big" style="font-size:14px">${esc(b.url)}</div><div class="muted">navegador ${esc(b.browser)} · ${b.sessions === 'persistent' ? 'sesiones persistentes (perfil en disco, contexto compartido)' : 'aislado (contexto por cliente, sin persistencia)'} · ${b.toolCount ?? '?'} tools</div></div>
     <div class="card"><h4>Ventanas</h4>${(b.windows || []).map(w => `<div class="row between"><span class="t">${esc(w.title)}</span><span class="tag ${w.visible ? 'ok' : ''}">${w.visible ? 'visible' : 'oculta'}</span></div>`).join('') || '<div class="muted">sin ventanas (se abren al navegar)</div>'}</div>`;
+  await renderSessions();
   await renderBrowsers();
   const tools = await api('/browser/tools');
   $('#br-tools').innerHTML = tools.map(t => `<div class="item"><span class="t"><b>${esc(t.name)}</b> · ${esc(t.description)}</span></div>`).join('');
 };
+async function renderSessions() {
+  try {
+    const s = await api('/sessions');
+    const dom = s.shared.domains || [];
+    $('#sess-box').innerHTML = `<div class="row wrap" style="gap:10px;align-items:center">
+        <span class="tag ${s.persistent ? 'ok' : 'warn'}">${s.persistent ? 'persistente' : 'aislado'}</span>
+        <span>Bolsa común: <b>${s.shared.cookies}</b> cookies · ${dom.length} dominios</span>
+        <span class="muted">${esc(dom.slice(0, 6).join(', '))}${dom.length > 6 ? ` +${dom.length - 6}` : ''}</span>
+      </div>
+      <div class="muted" style="margin-top:6px">Perfiles: ${s.profiles.length ? s.profiles.map(p => `${esc(p.title)} (${p.sizeMB} MB)`).join(' · ') : 'ninguno todavía'}</div>`;
+    $('#sess-save').disabled = !s.persistent;
+  } catch (e) { $('#sess-box').textContent = e.message; }
+}
+$('#sess-save').onclick = async () => {
+  if (!confirm('Guardar los logins del navegador activo en la bolsa común.\n\nReinicia el navegador: se pierden las pestañas abiertas. ¿Seguir?')) return;
+  toast('Guardando sesiones… (reinicia el navegador)');
+  try { const r = await post('/sessions/save'); toast(r.saved ? `Guardadas ${r.cookies} cookies` : (r.note || r.error || 'nada que guardar'), !r.saved); pageLoaders.browser(); }
+  catch (e) { toast(e.message, true); }
+};
+
 async function renderBrowsers() {
   const d = await api('/browser/browsers');
   $('#br-browsers').innerHTML = d.browsers.map(b => {

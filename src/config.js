@@ -29,9 +29,14 @@ const DEFAULTS = {
     allowedNetworks: [],         // IPs/subredes de CLIENTE permitidas por el firewall de Windows (p.ej. "192.168.2.0/24"); [] = no gestionado
     browser: 'firefox',          // por defecto Firefox (build de Playwright); tambien chrome | msedge | brave | chromium | webkit (ver src/browsers.js)
     executablePath: '',          // ruta a un ejecutable Chromium alternativo (Vivaldi, Opera...) o build propia
-    isolated: true,
+    // 'persistent': perfil en disco por navegador (~/.tcllm/profiles/<id>) -> los logins sobreviven al cierre y, al
+    //   cambiar de navegador, TCLLM traspasa cookies/localStorage. Todos los clientes comparten el contexto.
+    // 'isolated': contexto en memoria por cliente (aislamiento entre agentes), pero NO persiste nada.
+    sessions: 'persistent',
+    profilesDir: '',             // por defecto ~/.tcllm/profiles
+    isolated: true,              // solo se usa en sessions:'isolated'
     headless: false,
-    storageState: '',            // ruta a storage-state.json (logins); vacío = sin estado
+    storageState: '',            // bolsa común de logins (portable entre navegadores); vacío = ~/.tcllm/storage-state.json
     freeFileDialogs: false,      // --init-page para no interceptar el diálogo de archivos (útil para humanos)
     extraArgs: [],
     restartDelayMs: 3000,

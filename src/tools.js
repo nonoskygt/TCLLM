@@ -8,6 +8,7 @@ import { playwright } from './playwright.js';
 import { bridge } from './bridge.js';
 import { services } from './services.js';
 import * as browsers from './browsers.js';
+import * as sessions from './sessions.js';
 
 const S = (properties, required = []) => ({ type: 'object', properties, required, additionalProperties: false });
 const VM = { type: 'string', description: 'Nombre de la VM en VirtualBox (p.ej. "Win11")' };
@@ -53,6 +54,10 @@ export const tools = [
   { name: 'browser_install', description: 'Descarga e instala una build de Playwright (chromium, firefox o webkit; 100-200 MB). BLOQUEA hasta terminar (de segundos a varios minutos según la conexión); si tu cliente corta por timeout la descarga sigue: vuelve a llamar, es idempotente. Chrome/Edge/Brave se instalan desde su web.', inputSchema: S({ browser: { type: 'string', enum: ['chromium', 'firefox', 'webkit'] } }, ['browser']), handler: async ({ browser }) => ({ installed: await browsers.install(browser), status: browsers.installStatus(browser) }) },
   { name: 'browser_windows_show', description: 'Muestra las ventanas del navegador controlado por Playwright.', inputSchema: S({}), handler: () => windows.showBrowser() },
   { name: 'browser_windows_hide', description: 'Oculta las ventanas del navegador controlado por Playwright (sigue funcionando).', inputSchema: S({}), handler: () => windows.hideBrowser() },
+
+  // ---------- Sesiones (logins persistentes) ----------
+  { name: 'sessions_status', description: 'Estado de las sesiones persistentes: modo (persistent/isolated), perfiles en disco por navegador y qué logins hay en la bolsa común (cookies y dominios).', inputSchema: S({}), handler: () => sessions.status() },
+  { name: 'sessions_save', description: 'Guarda en la bolsa común los logins que haya ahora en el perfil del navegador activo, para que se puedan llevar a otro navegador. OJO: reinicia el navegador (el perfil está bloqueado mientras corre) y se pierden las pestañas abiertas.', inputSchema: S({}), handler: () => playwright.saveSessions() },
 
   // ---------- Servicios ----------
   { name: 'services_status', description: 'Estado de todos los servicios: TCLLM, VirtualBox, cada VM, Playwright MCP (navegador) y el host (CPU/RAM/discos).', inputSchema: S({}), handler: () => services.status() },

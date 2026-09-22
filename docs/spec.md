@@ -38,6 +38,7 @@ Playwright MCP compartido entre agentes.
 | `agents.js` | Detecta agentes instalados, genera snippets e instala config MCP + SKILL.md (Claude Code, Codex, OpenCode, Qwen Code, Gemini CLI, Cursor, Windsurf, `~/.agents/skills`). |
 | `server.js` | Express: monta API, MCP, panel estático, WebSocket de eventos/logs. |
 | `panel/` | SPA sin framework: Dashboard, VMs (control remoto en vivo), Navegador, Ventanas, Servicios, Conectar, Logs, Ajustes. |
+| `sessions.js` | Sesiones persistentes: perfil en disco por navegador (`~/.tcllm/profiles/<id>`), export/siembra de cookies y localStorage entre navegadores y bolsa común (`storage-state.json`). El supervisor cierra el navegador con WM_CLOSE antes de pararlo para que vuelque el perfil. |
 | `tools/` | `login.mjs` (`tcllm login`: exporta/fusiona logins al storage-state con el navegador del servidor), `check-login.mjs` (`tcllm check-login`), `mcp-client.mjs` (cliente Streamable HTTP mínimo para hablar con el Playwright MCP crudo). `test/multi-client.mjs`: prueba de aislamiento multi-agente. |
 
 ## Seguridad
