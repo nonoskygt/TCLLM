@@ -15,6 +15,11 @@ const HELP = `TCLLM ${VERSION} — Total Control for LLMs
   tcllm install-agents [--for a,b]  configura MCP + skill en los agentes detectados (claude,codex,opencode,qwen,gemini,cursor,windsurf)
   tcllm apikey                      muestra la API key
   tcllm config                      ruta y contenido (sin secretos) de config.json
+  tcllm login [--visit u1,u2] [--auto] [--replace] [--browser id]
+                                    abre el navegador del servidor para loguearte; guarda cookies/localStorage en el
+                                    storage-state que reciben los agentes (ver tools/login.mjs)
+  tcllm check-login <url...> [--keep]
+                                    abre una sesión de agente real y dice si cada URL carga logueada
 `;
 
 // Errores no capturados -> ~/.tcllm/logs/crash.log (el proceso corre oculto bajo la tarea programada)
@@ -56,6 +61,9 @@ switch (cmd) {
   }
   case 'apikey': { console.log(loadConfig().server.apiKey); break; }
   case 'config': { const { redactedConfig } = await import('../src/config.js'); loadConfig(); console.log(CONFIG_FILE); console.log(JSON.stringify(redactedConfig(), null, 2)); break; }
+  // Herramientas interactivas: mismo proceso, mismos argumentos (tools/*.mjs leen process.argv desde el 2)
+  case 'login': { loadConfig(); process.argv.splice(2, 1); await import('../tools/login.mjs'); break; }
+  case 'check-login': { loadConfig(); process.argv.splice(2, 1); await import('../tools/check-login.mjs'); break; }
   case '--version': case '-v': console.log(VERSION); break;
   default: console.log(HELP);
 }

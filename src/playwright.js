@@ -24,7 +24,10 @@ class PlaywrightSupervisor {
   get cfg() { return getConfig().playwright; }
   /** Puerto efectivo: el configurado, o el siguiente libre si estaba ocupado por algo ajeno. */
   get port() { return this.effectivePort || this.cfg.port; }
-  get url() { return `http://${this.cfg.host}:${this.port}/mcp`; }
+  /** Dirección a la que TCLLM se conecta. Si el servidor escucha en todas las interfaces (0.0.0.0 / ::) hay que hablarle
+   *  por loopback; y siempre por IP literal: "localhost" puede resolver a ::1, donde podría haber otro servidor ajeno. */
+  get clientHost() { const h = this.cfg.host; if (h === '::' || h === '::1') return '::1'; if (h === '0.0.0.0' || h === 'localhost' || !h) return '127.0.0.1'; return h; }
+  get url() { return `http://${this.clientHost}:${this.port}/mcp`; }
 
   args() {
     const c = this.cfg;
@@ -106,7 +109,7 @@ class PlaywrightSupervisor {
 
   tcpCheck(timeout = 2000) {
     return new Promise((resolve) => {
-      const s = net.connect({ host: this.cfg.host, port: this.port });
+      const s = net.connect({ host: this.clientHost, port: this.port });
       const done = (ok) => { s.destroy(); resolve(ok); };
       s.once('connect', () => done(true)); s.once('error', () => done(false)); s.setTimeout(timeout, () => done(false));
     });
@@ -152,7 +155,7 @@ class PlaywrightSupervisor {
     const browserWindows = listening ? (await windows.list().catch(() => [])).filter(w => w.kind === 'browser') : [];
     return {
       enabled: this.cfg.enabled, running: !!this.proc, adopted: !!this.adopted, adoptedNote: this.adopted ? 'Playwright MCP externo: TCLLM no controla su navegador ni puede cambiarlo' : undefined, pid: this.proc?.pid || null, listening, mcpOk, toolCount,
-      url: this.url, port: this.port, configuredPort: this.cfg.port, browser: this.cfg.browser, browserTitle: browsers.CATALOG[this.cfg.browser]?.title || this.cfg.browser, isolated: this.cfg.isolated, restarts: this.restarts,
+      url: this.url, host: this.cfg.host, port: this.port, configuredPort: this.cfg.port, allowedHosts: this.cfg.allowedHosts || [], storageState: this.cfg.storageState || '', browser: this.cfg.browser, browserTitle: browsers.CATALOG[this.cfg.browser]?.title || this.cfg.browser, isolated: this.cfg.isolated, restarts: this.restarts,
       uptimeMs: this.startedAt && this.proc ? Date.now() - this.startedAt : 0, lastExit: this.lastExit,
       windows: browserWindows.map(w => ({ hwnd: w.hwnd, title: w.title, visible: w.visible })),
     };

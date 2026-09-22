@@ -10,7 +10,7 @@ New-Item -ItemType Directory -Force $stage | Out-Null
 Write-Host "== Empaquetando TCLLM $ver ==" -ForegroundColor Cyan
 
 # 1. Archivos del proyecto
-foreach ($d in 'bin','src','ps','panel','scripts','skills','docs') { if (Test-Path "$root\$d") { robocopy "$root\$d" "$stage\$d" /E /NFL /NDL /NJH /NJS | Out-Null; if ($LASTEXITCODE -ge 8) { throw "robocopy $d fallo ($LASTEXITCODE)" } } }
+foreach ($d in 'bin','src','ps','panel','scripts','skills','tools','docs') { if (Test-Path "$root\$d") { robocopy "$root\$d" "$stage\$d" /E /NFL /NDL /NJH /NJS | Out-Null; if ($LASTEXITCODE -ge 8) { throw "robocopy $d fallo ($LASTEXITCODE)" } } }
 foreach ($f in 'package.json','package-lock.json','README.md','CHANGELOG.md','THIRD-PARTY-NOTICES.md','tcllm.cmd','LICENSE') { if (Test-Path "$root\$f") { Copy-Item "$root\$f" $stage } }
 
 # 2. Dependencias de producción

@@ -1,6 +1,6 @@
 {
   "name": "tcllm",
-  "version": "0.2.1",
+  "version": "0.3.0",
   "description": "TCLLM - Total Control for LLMs: remote control of VirtualBox VMs and Playwright browsers for any LLM (REST API, MCP, admin panel, service monitor).",
   "type": "module",
   "license": "MIT",
@@ -57,6 +57,7 @@
     "panel",
     "scripts",
     "skills",
+    "tools",
     "docs",
     "tcllm.cmd",
     "README.md",

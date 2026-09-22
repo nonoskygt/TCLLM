@@ -1,7 +1,15 @@
 # Changelog
 
-## Sin publicar
+## 0.3.0 — 2026-09-21
 
+- **Un solo servicio Playwright.** TCLLM puede exponer su Playwright MCP a la LAN (`playwright.host: "0.0.0.0"`,
+  `allowedHosts`) y sustituye al servicio suelto que corría aparte. TCLLM le habla siempre por IP de loopback
+  (`127.0.0.1`), nunca por `localhost`: en Windows puede resolver a `::1`, donde puede haber otro servidor ajeno
+  que TCLLM "adoptaría" por error. `GET /api/browser` informa `host`, `allowedHosts` y `storageState`.
+- **Logins compartidos**: `tcllm login` (abre el navegador del servidor con perfil persistente, guarda y fusiona
+  cookies/localStorage en `~/.tcllm/storage-state.json`; `--visit`, `--auto`, `--replace`, `--browser`),
+  `tcllm check-login <url…>` (sesión de agente real: OK / NO LOGUEADO) y `test/multi-client.mjs` (dos agentes a la
+  vez: aislamiento, ventanas, cookie canario). Migrados del servicio anterior (`tools/`).
 - **Watchdog en la tarea programada.** La tarea `TCLLM` tiene ahora dos disparadores: al iniciar sesión y cada 5 minutos.
   Si el proceso muere sin que se cierre la sesión (incidente 2026-09-21: un "Apagar" abortado desde el menú Inicio mató
   los procesos, pero el logon no se repitió y nada relanzó TCLLM), el segundo disparador lo levanta; con

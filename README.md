@@ -70,6 +70,24 @@ Desinstalar: `%LOCALAPPDATA%\TCLLM\scripts\uninstall.ps1` (`-Purge` borra tambi�
 Si el puerto de Playwright está ocupado por otro programa, TCLLM usa el siguiente libre; si ya hay un Playwright MCP
 escuchando ahí, lo adopta sin relanzarlo.
 
+### Playwright MCP compartido en la LAN (otros equipos/agentes sin pasar por TCLLM)
+El Playwright MCP que supervisa TCLLM es un `@playwright/mcp` normal: cualquier cliente MCP puede usarlo directo, sin API key.
+Para exponerlo a la red, en `playwright`: `"host": "0.0.0.0"`, `"port": 8931`, `"allowedHosts": ["192.168.2.20:8931"]`
+(el servidor rechaza con 403 cualquier cabecera `Host` que no esté en la lista; `localhost:<port>` y `127.0.0.1:<port>` van siempre).
+TCLLM le habla por `127.0.0.1` (nunca por `localhost`, que en Windows puede resolver a `::1` y encontrarse con otro servidor ajeno).
+
+### Logins compartidos (`storageState`)
+Los agentes corren en contextos aislados y sin perfil (`--isolated`): no ven tus logins salvo que se los inyectes.
+```
+tcllm login                                   # abre el navegador del servidor con un perfil persistente; te logueas; Enter → guarda
+tcllm login --visit https://sitio/,https://otro/ --auto    # refresco por script (localStorage solo de los orígenes visitados)
+tcllm check-login https://sitio/              # abre una sesión de agente real y dice OK / NO LOGUEADO
+node test/multi-client.mjs                    # dos agentes a la vez: aislamiento, ventanas y cookie canario
+```
+El estado va a `%USERPROFILE%\.tcllm\storage-state.json` (o `playwright.storageState`) y se **fusiona** con lo que hubiera
+(`--replace` para empezar de cero). El servidor lo relee en cada contexto nuevo: no hay que reiniciar nada. Contiene cookies y
+tokens de sesión reales: no lo compartas. Lo que un agente loguee durante su sesión no se guarda de vuelta.
+
 ## Detalles que importan
 - **VirtualBox sobre Hyper-V (NEM)**: si el host tiene Hyper-V/WSL2/Docker, VirtualBox va lento y **el reinicio de Windows dentro
   de la VM se cuelga**. `vm_start`/`vm_restart` llevan un watchdog (pantalla congelada + IF=0 en todas las vCPU + RIP estático → reset).
