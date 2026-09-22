@@ -202,6 +202,41 @@ window.installAgent = async (id) => { $('#cn-msg').textContent = 'instalando…'
 $('#cn-install').onclick = async () => { $('#cn-msg').textContent = 'instalando…'; try { const r = await post('/agents/install', {}); $('#cn-msg').textContent = r.map(x => `${x.ok ? 'OK' : 'ERR'} ${x.title}`).join(' · '); pageLoaders.connect(); } catch (e) { $('#cn-msg').textContent = e.message; } };
 $('#cn-skill').onclick = () => window.open('/api/skill.md?api_key=' + encodeURIComponent(KEY));
 
+// ---------- conexiones / acceso ----------
+let access = null;
+pageLoaders.access = async () => { $('#acc-fw-state').textContent = 'leyendo firewall…'; access = await api('/access'); renderAccess(); };
+function chip(text, onDel, cls = '') { return `<span class="chip ${cls}">${esc(text)}${onDel ? `<button title="quitar" onclick="${onDel}">✕</button>` : ''}</span>`; }
+function renderAccess() {
+  const a = access; if (!a) return;
+  $('#access-cards').innerHTML = `
+    <div class="card"><h4>Playwright MCP</h4><div class="big">${a.exposed ? 'en la red' : 'solo local'}</div><div class="muted">escucha ${esc(a.host)}:${a.port} · ${a.allowAnyHost ? 'acepta cualquier Host' : a.effectiveHosts.length + ' hosts permitidos'}</div></div>
+    <div class="card"><h4>URLs para conectarse</h4>${a.reachableUrls.map(u => `<div class="row between"><span class="t mono">${esc(u)}</span></div>`).join('')}</div>
+    <div class="card"><h4>Firewall (puerto ${a.port})</h4>${renderFwState(a.firewall)}</div>`;
+  $('#acc-nets').innerHTML = (a.allowedNetworks.length ? a.allowedNetworks.map(n => chip(n, `accDelNet('${esc(n)}')`, n === 'Any' ? 'any' : '')).join('') : '<span class="muted">sin restricción por red (lo que permita el firewall actual)</span>');
+  $('#acc-fw-cmd').textContent = a.firewallCommand;
+  $('#acc-anyhost').checked = a.allowAnyHost;
+  $('#acc-hosts').innerHTML = a.allowAnyHost
+    ? '<span class="muted">acepta cualquier Host (*)</span>'
+    : chip(`localhost:${a.port}`) + chip(`127.0.0.1:${a.port}`) + a.allowedHosts.map(h => chip(h, `accDelHost('${esc(h)}')`)).join('');
+}
+function renderFwState(fw) {
+  if (!fw || fw.error) return `<div class="muted">no se pudo leer (${esc(fw?.error || '')})</div>`;
+  if (!fw.rules || !fw.rules.length) return '<div class="muted">sin regla propia; el acceso depende de otras reglas del sistema</div>';
+  return fw.rules.map(r => `<div class="row between"><span class="t">${esc(r.name)}</span><span class="tag ${r.enabled && r.action === 'Allow' ? 'ok' : 'down'}">${esc((r.remote || ['Any']).join(', '))}</span></div>`).join('');
+}
+window.accDelNet = async (n) => { const nets = access.allowedNetworks.filter(x => x !== n); await saveNets(nets); };
+window.accDelHost = async (h) => { try { const r = await post('/access/hosts', { allowedHosts: access.allowedHosts.filter(x => x !== h) }); access = r; renderAccess(); toast('Host quitado; Playwright relanzado'); } catch (e) { toast(e.message, true); } };
+async function saveNets(nets) { try { const r = await post('/access/networks', { networks: nets }); access.allowedNetworks = r.allowedNetworks; access.firewallCommand = r.firewallCommand; renderAccess(); $('#acc-fw-msg').textContent = 'guardado. Pulsa “Aplicar al firewall” para que tenga efecto.'; } catch (e) { toast(e.message, true); } }
+$('#acc-net-add').onclick = () => { const v = $('#acc-net-in').value.trim(); if (!v) return; saveNets([...new Set([...access.allowedNetworks, v])]); $('#acc-net-in').value = ''; };
+$('#acc-net-in').onkeydown = (e) => { if (e.key === 'Enter') $('#acc-net-add').click(); };
+$('#acc-net-mine').onclick = () => saveNets([...new Set([...access.allowedNetworks.filter(n => n !== 'Any'), '192.168.2.0/24'])]);
+$('#acc-net-any').onclick = () => saveNets(['Any']);
+$('#acc-fw-apply').onclick = async () => { $('#acc-fw-msg').textContent = 'aplicando… acepta el aviso de administrador (UAC)'; try { const r = await post('/access/firewall/apply'); access = r.status; renderAccess(); $('#acc-fw-msg').textContent = 'firewall aplicado: ' + (r.remote || []).join(', '); toast('Firewall aplicado'); } catch (e) { $('#acc-fw-msg').textContent = ''; toast(e.message, true); } };
+$('#acc-host-add').onclick = async () => { const v = $('#acc-host-in').value.trim(); if (!v) return; try { const r = await post('/access/hosts', { allowedHosts: [...access.allowedHosts, v] }); access = r; renderAccess(); $('#acc-host-in').value = ''; toast('Host añadido; Playwright relanzado'); } catch (e) { toast(e.message, true); } };
+$('#acc-host-in').onkeydown = (e) => { if (e.key === 'Enter') $('#acc-host-add').click(); };
+$('#acc-host-mine').onclick = async () => { try { const r = await post('/access/hosts/local'); access = r; renderAccess(); toast('IPs locales añadidas; Playwright relanzado'); } catch (e) { toast(e.message, true); } };
+$('#acc-anyhost').onchange = async (e) => { const on = e.target.checked; if (on && !confirm('Aceptar cualquier Host desactiva la protección anti-rebinding. El acceso quedará limitado solo por el firewall. ¿Continuar?')) { e.target.checked = false; return; } toast('Aplicando… (relanza Playwright)'); try { const r = await post('/access/hosts', { allowAnyHost: on }); access = r; renderAccess(); toast('Aplicado'); } catch (err) { toast(err.message, true); } };
+
 // ---------- logs ----------
 function renderLogs() { const lvl = $('#log-level').value; const v = $('#log-view'); v.innerHTML = logs.filter(l => !lvl || l.level === lvl).slice(-800).map(l => `<span class="log-${l.level}">${esc(l.ts.slice(11, 19))} [${l.level}] ${esc(l.mod)}: ${esc(l.msg)}${l.extra ? ' ' + esc(JSON.stringify(l.extra)) : ''}</span>`).join('\n'); if ($('#log-follow').checked) v.scrollTop = v.scrollHeight; }
 pageLoaders.logs = async () => { if (!logs.length) logs = await api('/logs?n=300'); renderLogs(); };

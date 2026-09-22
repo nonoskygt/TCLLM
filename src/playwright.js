@@ -32,8 +32,12 @@ class PlaywrightSupervisor {
   args() {
     const c = this.cfg;
     const a = ['--port', String(this.port), '--host', c.host, ...browsers.launchArgs(c.browser, { executablePath: c.executablePath })];
-    const hosts = [`localhost:${this.port}`, `127.0.0.1:${this.port}`, ...(c.allowedHosts || [])];
-    a.push('--allowed-hosts', hosts.join(','));
+    if (c.allowAnyHost) {
+      a.push('--allowed-hosts', '*');   // acepta cualquier cabecera Host (el filtro por red queda en el firewall)
+    } else {
+      const hosts = [`localhost:${this.port}`, `127.0.0.1:${this.port}`, ...(c.allowedHosts || [])];
+      a.push('--allowed-hosts', hosts.join(','));
+    }
     if (c.isolated) a.push('--isolated');
     if (c.headless) a.push('--headless');
     if (c.storageState && fs.existsSync(c.storageState)) a.push('--storage-state', c.storageState);

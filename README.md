@@ -60,7 +60,7 @@ Desinstalar: `%LOCALAPPDATA%\TCLLM\scripts\uninstall.ps1` (`-Purge` borra tambi�
   "vms": {
     "MiVM": { "user": "<usuario del guest>", "password": "<contraseña>", "sshPort": 2222, "sshKey": "C:\\Users\\<tú>\\.ssh\\id_ed25519" }
   },
-  "playwright": { "enabled": true, "port": 8932, "browser": "firefox", "executablePath": "", "isolated": true, "headless": false, "storageState": "", "freeFileDialogs": false },
+  "playwright": { "enabled": true, "port": 8932, "browser": "firefox", "isolated": true, "storageState": "", "allowedHosts": [], "allowAnyHost": false, "allowedNetworks": [] },
   "monitor": { "intervalMs": 10000 },
   "watchdog": { "enabled": true }
 }
@@ -69,6 +69,12 @@ Desinstalar: `%LOCALAPPDATA%\TCLLM\scripts\uninstall.ps1` (`-Purge` borra tambi�
 `host: "0.0.0.0"` expone API/MCP/panel a la red (protegido solo por la API key; pon TLS delante si sale de tu LAN).
 Si el puerto de Playwright está ocupado por otro programa, TCLLM usa el siguiente libre; si ya hay un Playwright MCP
 escuchando ahí, lo adopta sin relanzarlo.
+
+### Gestionar el acceso desde el panel (Conexiones)
+El panel tiene una sección **Conexiones** para controlar quién usa el Playwright MCP, en dos capas:
+
+- **Redes/IPs permitidas (firewall de Windows)** — la que filtra por dirección de quien se conecta. Acepta IPs (`192.168.2.50`), **subredes** (`192.168.2.0/24`), rangos (`192.168.2.10-192.168.2.60`) o `any`. "Aplicar" pide administrador (UAC), crea la regla `TCLLM Playwright (<puerto>)` y quita la vieja `Playwright MCP`.
+- **Hosts permitidos (cabecera Host)** — la protección anti-rebinding de Playwright: `host:puerto` exactos o `*`. No entiende subredes (por eso la restricción por red va en el firewall).
 
 ### Playwright MCP compartido en la LAN (otros equipos/agentes sin pasar por TCLLM)
 El Playwright MCP que supervisa TCLLM es un `@playwright/mcp` normal: cualquier cliente MCP puede usarlo directo, sin API key.

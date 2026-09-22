@@ -70,6 +70,13 @@ export function apiRouter() {
   r.get('/browser/tools', wrap(() => browserTools()));
   r.post('/browser/tools/:name', wrap(async (req) => { const n = req.params.name.startsWith('browser_') ? req.params.name : 'browser_' + req.params.name; return callTool(n, req.body || {}); }));
 
+  // --- acceso / conexiones (cabecera Host + firewall por red de cliente) ---
+  r.get('/access', wrap(async () => { const a = await import('./access.js'); return a.status(); }));
+  r.post('/access/hosts', wrap(async (req) => { const a = await import('./access.js'); return a.setHosts(req.body || {}); }));
+  r.post('/access/hosts/local', wrap(async () => { const a = await import('./access.js'); return a.addLocalHosts(); }));
+  r.post('/access/networks', wrap(async (req) => { const a = await import('./access.js'); return a.setNetworks(req.body?.networks || []); }));
+  r.post('/access/firewall/apply', wrap(async () => { const a = await import('./access.js'); return a.applyFirewall(); }));
+
   // --- agentes / integración ---
   r.get('/agents', wrap(() => agents.detect()));
   r.get('/agents/snippets', wrap(() => agents.snippets()));

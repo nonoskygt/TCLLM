@@ -24,6 +24,7 @@
     <a data-page="vms"><svg viewBox="0 0 24 24"><rect x="2" y="4" width="20" height="13"/><path d="M8 21h8M12 17v4"/></svg><span>Máquinas virtuales</span></a>
     <a data-page="browser"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/></svg><span>Navegador</span></a>
     <a data-page="windows"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="13" height="10"/><path d="M8 15v4h13V9h-5"/></svg><span>Ventanas</span></a>
+    <a data-page="access"><svg viewBox="0 0 24 24"><path d="M12 2 4 5v6c0 5 3.5 8 8 11 4.5-3 8-6 8-11V5l-8-3zM9 12l2 2 4-4"/></svg><span>Conexiones</span></a>
     <a data-page="services"><svg viewBox="0 0 24 24"><path d="M3 12h4l3-8 4 16 3-8h4"/></svg><span>Servicios</span></a>
     <a data-page="connect"><svg viewBox="0 0 24 24"><path d="M9 7V3M15 7V3M7 7h10v5a5 5 0 0 1-10 0V7zM12 17v4"/></svg><span>Conectar agentes</span></a>
     <a data-page="logs"><svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h10"/></svg><span>Logs</span></a>
@@ -104,6 +105,38 @@
     <p class="muted">Ventanas de las VMs (VirtualBoxVM) y del navegador Playwright. Ocultar no cierra nada: el proceso sigue.</p>
     <div class="row"><button id="win-refresh">Actualizar</button></div>
     <div id="win-list" class="list"></div>
+  </section>
+
+  <section id="page-access" class="page hidden">
+    <h1>Conexiones y acceso a la red</h1>
+    <p class="muted">Quién puede usar el Playwright MCP de esta laptop. Dos capas: la <b>red de cliente</b> (firewall de Windows: IPs y subredes) y la <b>cabecera Host</b> (protección anti-rebinding de Playwright: <code>host:puerto</code> exacto o <code>*</code>). El firewall es el que filtra por dirección de quien se conecta; la cabecera Host no entiende subredes.</p>
+    <div class="grid" id="access-cards"></div>
+
+    <h2>Redes / IPs permitidas (firewall)</h2>
+    <p class="muted">Solo estas direcciones de origen podrán conectarse al puerto. Acepta una IP (<code>192.168.2.50</code>), una subred (<code>192.168.2.0/24</code>), un rango (<code>192.168.2.10-192.168.2.60</code>) o <code>any</code> (cualquiera). Vacío = no gestionado por TCLLM.</p>
+    <div id="acc-nets" class="chips"></div>
+    <div class="row wrap">
+      <input id="acc-net-in" placeholder="192.168.2.0/24">
+      <button id="acc-net-add">Añadir</button>
+      <button id="acc-net-mine">Mi red 192.168.2.0/24</button>
+      <button id="acc-net-any" class="warn">Cualquiera (any)</button>
+    </div>
+    <div class="row wrap" style="margin-top:8px">
+      <button id="acc-fw-apply" class="primary">Aplicar al firewall (pide administrador)</button>
+      <span id="acc-fw-msg" class="muted"></span>
+    </div>
+    <div id="acc-fw-state" class="muted" style="margin-top:6px"></div>
+    <details style="margin-top:6px"><summary class="muted">Comando manual (elevado)</summary><pre id="acc-fw-cmd" class="mono"></pre></details>
+
+    <h2>Hosts permitidos (cabecera Host)</h2>
+    <p class="muted">Direcciones por las que se puede pedir el servidor (lo que el cliente pone en <code>Host:</code>). <code>localhost:puerto</code> y <code>127.0.0.1:puerto</code> siempre valen. Cambiar esto <b>relanza el Playwright MCP</b> y corta las sesiones abiertas.</p>
+    <div class="row"><label><input type="checkbox" id="acc-anyhost"> Aceptar cualquier Host (<code>*</code>) — desactiva la protección anti-rebinding; deja el filtrado al firewall</label></div>
+    <div id="acc-hosts" class="chips" style="margin-top:8px"></div>
+    <div class="row wrap">
+      <input id="acc-host-in" placeholder="192.168.2.20:8931 o un hostname">
+      <button id="acc-host-add">Añadir</button>
+      <button id="acc-host-mine">Incluir mis IPs</button>
+    </div>
   </section>
 
   <section id="page-services" class="page hidden">

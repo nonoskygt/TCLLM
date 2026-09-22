@@ -24,7 +24,9 @@ const DEFAULTS = {
     enabled: true,
     port: 8932,
     host: '127.0.0.1',
-    allowedHosts: [],            // extra hosts para --allowed-hosts (además de host:port)
+    allowedHosts: [],            // extra hosts para --allowed-hosts (cabecera Host, host:port exacto; además de host:port propios)
+    allowAnyHost: false,         // --allowed-hosts * : acepta cualquier cabecera Host (desactiva la protección anti-rebinding)
+    allowedNetworks: [],         // IPs/subredes de CLIENTE permitidas por el firewall de Windows (p.ej. "192.168.2.0/24"); [] = no gestionado
     browser: 'firefox',          // por defecto Firefox (build de Playwright); tambien chrome | msedge | brave | chromium | webkit (ver src/browsers.js)
     executablePath: '',          // ruta a un ejecutable Chromium alternativo (Vivaldi, Opera...) o build propia
     isolated: true,

@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.3.1 — 2026-09-21
+
+- **Panel → Conexiones**: nueva sección para gestionar quién accede al Playwright MCP, en dos capas.
+  - **Redes/IPs permitidas (firewall de Windows)**: acepta IPs y **subredes** (`192.168.2.0/24`), rangos (`a-b`) o `any`.
+    Un clic en **Mi red 192.168.2.0/24**. Aplicar crea/reemplaza una regla propia `TCLLM Playwright (<puerto>)` y elimina
+    la `Playwright MCP` heredada (pide administrador vía UAC). Muestra el comando manual equivalente.
+  - **Hosts permitidos (cabecera Host de Playwright)**: `host:puerto` exactos o `*` (cualquiera). Botón "incluir mis IPs".
+    Cambiarlo relanza el Playwright MCP.
+- REST: `GET /api/access`, `POST /api/access/hosts`, `POST /api/access/hosts/local`, `POST /api/access/networks`,
+  `POST /api/access/firewall/apply`. Config: `playwright.allowAnyHost`, `playwright.allowedNetworks`.
+- TCLLM se conecta a su Playwright por IP de loopback aunque escuche en `0.0.0.0` (evita el `::1` de terceros).
+
 ## 0.3.0 — 2026-09-21
 
 - **Un solo servicio Playwright.** TCLLM puede exponer su Playwright MCP a la LAN (`playwright.host: "0.0.0.0"`,

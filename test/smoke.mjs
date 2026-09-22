@@ -17,6 +17,7 @@ const op = await api('/openapi.json'); check('openapi', op.body.openapi === '3.1
 const vms = await api('/tools/vm_list', { method: 'POST', body: '{}' }); check('vm_list', Array.isArray(vms.body), vms.body.map?.(v => v.name + ':' + v.state).join(' '));
 const br = await api('/browser/browsers'); check('browser list', Array.isArray(br.body.browsers) && br.body.browsers.length === 6 && !!br.body.active, `activo=${br.body.active} instalados=${br.body.browsers?.filter(b => b.installed).map(b => b.id).join(',')}`);
 const win = await api('/windows'); check('windows', Array.isArray(win.body), win.body.length);
+const acc = await api('/access'); check('access', acc.status === 200 && Array.isArray(acc.body.reachableUrls) && Array.isArray(acc.body.allowedNetworks), `host=${acc.body.host}:${acc.body.port} redes=${acc.body.allowedNetworks?.join(',') || '-'} anyHost=${acc.body.allowAnyHost}`);
 const sn = await api('/agents/snippets'); check('snippets', !!sn.body.claude && !!sn.body.codex && !!sn.body.opencode && !!sn.body.qwen);
 const sk = await fetch(URL_ + '/api/skill.md?api_key=' + KEY).then(r => r.text()); check('skill.md', sk.startsWith('---\nname: tcllm'));
 // MCP
