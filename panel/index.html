@@ -97,6 +97,11 @@
       <span class="muted">exporta el perfil activo a la bolsa común (reinicia el navegador)</span>
     </div>
 
+    <h2>Pestañas</h2>
+    <p class="muted">Pestañas abiertas en el navegador compartido y qué agente usó cada una por última vez.</p>
+    <div class="row"><button id="tabs-refresh">Actualizar</button><span id="tabs-msg" class="muted"></span></div>
+    <div id="tabs-box"></div>
+
     <h2>Actividad de agentes</h2>
     <p class="muted">Quién está usando el navegador a través de TCLLM (API REST y MCP del 7777): llamadas en curso y las últimas terminadas. Una llamada que sigue en curso mucho tiempo traba el navegador compartido para todos. Los clientes conectados directo al 8931 no aparecen aquí. Para identificarse por REST, un agente manda la cabecera <code>X-TCLLM-Client: &lt;nombre&gt;</code>.</p>
     <div class="row"><button id="calls-refresh">Actualizar</button><span id="calls-msg" class="muted"></span></div>

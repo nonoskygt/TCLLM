@@ -7,7 +7,7 @@ let status = null, currentVm = null, liveTimer = null, ws = null, logs = [];
 
 function toast(msg, err = false) { const t = $('#toast'); t.textContent = msg; t.className = err ? 'err' : ''; clearTimeout(t._t); t._t = setTimeout(() => t.className = 'hidden', 4000); }
 async function api(path, opts = {}) {
-  const r = await fetch('/api' + path, { ...opts, headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + KEY, ...(opts.headers || {}) }, body: opts.body && typeof opts.body !== 'string' ? JSON.stringify(opts.body) : opts.body });
+  const r = await fetch('/api' + path, { ...opts, headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + KEY, 'X-TCLLM-Client': 'panel', ...(opts.headers || {}) }, body: opts.body && typeof opts.body !== 'string' ? JSON.stringify(opts.body) : opts.body });
   if (r.status === 401) { showLogin('API key inválida'); throw new Error('401'); }
   const ct = r.headers.get('content-type') || '';
   const data = ct.includes('json') ? await r.json() : await r.blob();
@@ -124,18 +124,46 @@ pageLoaders.browser = async () => {
     <div class="card"><h4>Endpoint MCP (directo)</h4><div class="big" style="font-size:14px">${esc(b.url)}</div><div class="muted">navegador ${esc(b.browser)} · ${b.sessions === 'persistent' ? 'sesiones persistentes (perfil en disco, contexto compartido)' : 'aislado (contexto por cliente, sin persistencia)'} · ${b.toolCount ?? '?'} tools</div></div>
     <div class="card"><h4>Ventanas</h4>${(b.windows || []).map(w => `<div class="row between"><span class="t">${esc(w.title)}</span><span class="tag ${w.visible ? 'ok' : ''}">${w.visible ? 'visible' : 'oculta'}</span></div>`).join('') || '<div class="muted">sin ventanas (se abren al navegar)</div>'}</div>`;
   await renderSessions();
+  await renderTabs();
   await renderCalls();
   await renderBrowsers();
   const tools = await api('/browser/tools');
   $('#br-tools').innerHTML = tools.map(t => `<div class="item"><span class="t"><b>${esc(t.name)}</b> · ${esc(t.description)}</span></div>`).join('');
 };
+// Hora local (el servidor guarda UTC)
+const hhmmss = (iso) => new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
+
+async function renderTabs() {
+  let tabs = [], note = '', attributed = true, direct = [];
+  try { const r = await api('/browser/tabs'); tabs = r.tabs; note = r.note; direct = r.direct || []; }
+  catch (e) {
+    // Servidor anterior a esta versión: lista sin atribución
+    attributed = false;
+    try {
+      const r = await post('/browser/tools/tabs', { action: 'list' });
+      const text = (r.upstream?.content || []).map(c => c.text || '').join('\n');
+      tabs = [...text.matchAll(/^- (\d+):(?: \(current\))? \[(.*)\]\((\S*)\)\s*$/gm)].map(m => ({ index: +m[1], title: m[2], url: m[3], lastUse: null }));
+    } catch (e2) { $('#tabs-box').textContent = e2.message; return; }
+  }
+  const host = (u) => { try { return new URL(u).host; } catch { return u; } };
+  const ago = (iso) => { const s = Math.round((Date.now() - new Date(iso)) / 1000); return s < 60 ? `hace ${s} s` : s < 3600 ? `hace ${Math.round(s / 60)} min` : `hace ${Math.round(s / 3600)} h`; };
+  $('#tabs-box').innerHTML = `<div class="card"><h4>Abiertas: ${tabs.length}</h4>${tabs.length ? tabs.map(t => `<div class="row between" style="gap:12px">
+      <span class="t"><span class="mono">#${t.index}</span> ${esc(t.title || '(sin título)')} <span class="muted">· ${esc(host(t.url))}</span></span>
+      <span>${t.lastUse ? `<span class="tag ok">${esc(t.lastUse.via)}:${esc(t.lastUse.client)}</span> <span class="muted">${ago(t.lastUse.at)} · ${esc(t.lastUse.tool.replace('browser_', ''))}</span>` : `<span class="muted">${attributed ? 'sin uso registrado' : '—'}</span>`}</span></div>`).join('') : '<div class="muted">no hay pestañas abiertas</div>'}</div>`;
+  $('#tabs-msg').textContent = attributed ? (note || '') : 'Para ver qué agente usa cada pestaña hay que reiniciar TCLLM (versión nueva).';
+  if (attributed && direct?.length) {
+    $('#tabs-box').insertAdjacentHTML('beforeend', `<div class="card" style="margin-top:8px"><h4>Conectados directo al navegador (sin pasar por TCLLM)</h4>${direct.map(d => `<div class="row between"><span class="t mono">${esc(d.ip)}${d.process ? ` · ${esc(d.process)}` : ''}${d.pid ? ` <span class="muted">(pid ${d.pid})</span>` : ''}</span><span class="muted">${d.connections} conexión(es)</span></div>`).join('')}<div class="muted" style="margin-top:6px">Estas no se pueden atribuir a una pestaña: si una pestaña dice "sin uso registrado", probablemente es de uno de estos.</div></div>`);
+  }
+}
+$('#tabs-refresh').onclick = renderTabs;
+
 async function renderCalls() {
   try {
     const c = await api('/calls?browser=1&limit=15');
     const secs = (ms) => (ms / 1000).toFixed(ms < 10000 ? 1 : 0) + ' s';
     const whoOf = (x) => `${esc(x.via)}:${esc(x.client)}${x.proc ? ` <span class="muted">[${esc(x.proc)}]</span>` : ''}`;
     const tag = (o) => `<span class="tag ${o === 'ok' ? 'ok' : o === 'en curso' ? 'warn' : 'down'}">${esc(o)}</span>`;
-    const row = (x) => `<div class="row between"><span class="t mono">${esc(x.startedAt.slice(11, 19))} · ${esc(x.tool)} · ${whoOf(x)}</span><span>${secs(x.ms)} ${tag(x.outcome)}</span></div>`;
+    const row = (x) => `<div class="row between"><span class="t mono">${esc(hhmmss(x.startedAt))} · ${esc(x.tool)} · ${whoOf(x)}</span><span>${secs(x.ms)} ${tag(x.outcome)}</span></div>`;
     $('#calls-box').innerHTML = `
       <div class="card"><h4>En curso</h4>${c.inFlight.length ? c.inFlight.map(row).join('') : '<div class="muted">ninguna</div>'}</div>
       <div class="card" style="margin-top:8px"><h4>Últimas</h4>${c.recent.length ? c.recent.map(row).join('') : '<div class="muted">todavía no hubo llamadas al navegador por TCLLM</div>'}</div>`;

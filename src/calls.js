@@ -41,6 +41,7 @@ export async function track(tool, fn) {
   try {
     const r = await fn();
     e.outcome = r?.upstream?.isError ? 'error de la tool' : 'ok';
+    e.page = pageOf(r);   // en qué pestaña quedó (para saber qué agente usa cada pestaña)
     return r;
   } catch (err) {
     e.outcome = /timed out|timeout/i.test(err?.message || '') || err?.code === -32001 ? 'timeout' : 'error';
@@ -55,6 +56,24 @@ export async function track(tool, fn) {
       e.outcome === 'ok' && e.ms < LOG_ALWAYS_MS ? L.info(line) : L.warn(line);
     }
   }
+}
+
+/** Página en la que quedó una llamada al navegador: Playwright la informa en cada respuesta ("Page URL: ..."). */
+function pageOf(r) {
+  const text = (r?.upstream?.content || []).map(c => c?.text || '').join('\n');
+  const url = (text.match(/Page URL: (\S+)/) || [])[1];
+  if (!url) return null;
+  return { url, title: ((text.match(/Page Title: (.*)/) || [])[1] || '').trim() };
+}
+
+/** Último uso conocido de cada URL por un agente (el más reciente gana). Excluye llamadas internas de TCLLM. */
+export function lastUseByUrl() {
+  const m = new Map();
+  for (const e of recent) {   // de más viejo a más nuevo: el último que escribe gana
+    if (!e.page || e.via === 'interno') continue;
+    m.set(e.page.url, { client: e.client, via: e.via, tool: e.tool, at: e.startedAt + (e.ms || 0) });
+  }
+  return m;
 }
 
 /** Qué proceso local es el dueño del puerto de origen de la llamada (una sola vez por llamada, solo si es lenta). */

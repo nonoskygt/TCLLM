@@ -8,8 +8,9 @@ import { getConfig, saveConfig, redactedConfig } from './config.js';
 import { logger } from './log.js';
 import * as agents from './agents.js';
 import { sessionCount } from './mcp.js';
-import { callCtx, restContext, status as callsStatus } from './calls.js';
+import { callCtx, restContext, status as callsStatus, lastUseByUrl } from './calls.js';
 import crypto from 'node:crypto';
+import { execFile } from 'node:child_process';
 
 const VERSION = createRequire(import.meta.url)('../package.json').version;
 
@@ -72,6 +73,21 @@ export function apiRouter() {
   r.post('/browser/install', wrap(async (req) => { const b = await import('./browsers.js'); const id = req.body?.browser; b.install(id).catch(() => {}); await new Promise(r => setTimeout(r, 500)); return { browser: id, ...(b.installStatus(id) || { status: 'idle' }) }; }));
   r.get('/browser/install/:browser', wrap(async (req) => { const { installStatus } = await import('./browsers.js'); return installStatus(req.params.browser) || { status: 'idle' }; }));
   r.get('/browser/tools', wrap(() => browserTools()));
+  // Pestañas abiertas y qué agente usó cada una por última vez (según el registro de llamadas). Lista directa: no se
+  // registra como llamada de nadie ni cambia la pestaña activa.
+  r.get('/browser/tabs', wrap(async () => {
+    const res = await playwright.callTool('browser_tabs', { action: 'list' });
+    const text = (res.content || []).map(c => c.text || '').join('\n');
+    const uses = lastUseByUrl();
+    const sameDoc = (a, b) => { try { const x = new URL(a), y = new URL(b); return x.origin === y.origin && x.pathname === y.pathname; } catch { return false; } };
+    const tabs = [...text.matchAll(/^- (\d+):(?: \(current\))? \[(.*)\]\((\S*)\)\s*$/gm)].map(m => {
+      const [, index, title, url] = m;
+      let use = uses.get(url), match = use ? 'exacta' : null;
+      if (!use) for (const [u, v] of uses) if (sameDoc(u, url) && (!use || v.at > use.at)) { use = v; match = 'misma página'; }
+      return { index: +index, title, url, lastUse: use ? { ...use, at: new Date(use.at).toISOString(), match } : null };
+    });
+    return { tabs, direct: await directClients(playwright.port), note: 'Solo se atribuyen las llamadas que pasan por TCLLM (REST y MCP del 7777). Los agentes conectados directo al 8931 no quedan registrados: se listan aparte como conexiones directas.' };
+  }));
   r.post('/browser/tools/:name', wrap(async (req) => { const n = req.params.name.startsWith('browser_') ? req.params.name : 'browser_' + req.params.name; return callTool(n, req.body || {}); }));
 
   // --- sesiones persistentes (logins) ---
@@ -99,6 +115,37 @@ export function apiRouter() {
 
   r.get('/openapi.json', wrap(async (req) => openapi(req)));
   return r;
+}
+
+/** Clientes conectados DIRECTO al Playwright MCP (sin pasar por TCLLM): IP de origen y, si es local, el proceso.
+ *  Sale de netstat (sin admin). Se excluye la conexión del propio TCLLM. */
+function directClients(port) {
+  return new Promise((resolve) => {
+    execFile('netstat', ['-ano', '-p', 'TCP'], { windowsHide: true, timeout: 8000 }, (err, out) => {
+      if (err) return resolve([]);
+      const rows = String(out).split(/\r?\n/).map(l => l.trim().split(/\s+/)).filter(p => p.length >= 5 && p[3] === 'ESTABLISHED');
+      const portOf = (a) => a.slice(a.lastIndexOf(':') + 1), hostOf = (a) => a.slice(0, a.lastIndexOf(':')).replace(/^\[|\]$/g, '');
+      const ownerByLocal = new Map(rows.map(p => [p[1], +p[4]]));   // "ip:puerto" local -> pid (para ubicar al cliente local)
+      const byKey = new Map();
+      for (const p of rows) {
+        if (portOf(p[1]) !== String(port)) continue;               // lado servidor: local = :8931
+        const remote = p[2], ip = hostOf(remote);
+        const pid = ownerByLocal.get(remote);                       // si el cliente es local, su socket figura como local
+        if (pid === process.pid) continue;                          // es TCLLM
+        const k = `${ip}|${pid || ''}`;
+        const b = byKey.get(k) || { ip, pid: pid || null, connections: 0 };
+        b.connections++; byKey.set(k, b);
+      }
+      const list = [...byKey.values()];
+      if (!list.some(x => x.pid)) return resolve(list);
+      // nombre del proceso de los clientes locales (claude.exe, node.exe, python.exe...)
+      execFile('tasklist', ['/FO', 'CSV', '/NH'], { windowsHide: true, timeout: 8000 }, (e2, tl) => {
+        const names = new Map();
+        if (!e2) for (const line of String(tl).split(/\r?\n/)) { const m = line.match(/^"([^"]+)","(\d+)"/); if (m) names.set(+m[2], m[1]); }
+        resolve(list.map(x => ({ ...x, process: x.pid ? names.get(x.pid) || null : null })));
+      });
+    });
+  });
 }
 
 async function openapi(req) {

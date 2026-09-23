@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.4.7 - 2026-09-23
+
+- **Panel -> Navegador -> Pestanas: que agente usa cada pestana.** Lista las pestanas abiertas del navegador compartido
+  y, para cada una, el ultimo agente que la uso (hace cuanto y con que tool). TCLLM anota en que pagina quedo cada
+  llamada (Playwright la informa como `Page URL`) y la cruza con las pestanas. `GET /api/browser/tabs`.
+- **Conectados directo al navegador**: los agentes que entran directo al 8931 (sin pasar por TCLLM) no se pueden
+  atribuir a una pestana; ahora se listan aparte con su IP y, si son locales, el proceso (netstat, sin admin).
+- Horas del registro en hora local (antes UTC) y el panel se identifica como `panel` en el registro.
+
 ## 0.4.6 - 2026-09-23
 
 - **La ventana del navegador de los agentes ya no queda oculta sin que nadie la pueda mostrar.** El 23/09 la ventana
