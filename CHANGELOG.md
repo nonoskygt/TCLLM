@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.4.2 - 2026-09-23
+
+- **Una llamada larga ya no tumba el Chrome compartido.** `playwright.callTool` usaba el timeout de 60 s del SDK de MCP y,
+  ante cualquier error (incluido ese timeout), cerraba su sesion con el Playwright MCP. Si era el ultimo cliente,
+  `@playwright/mcp` cerraba el navegador y todos los agentes perdian sus pestanas (reportado por la sesion de la fabrica:
+  2 veces el 23/09). Ahora: timeout propio `playwright.callTimeoutMs` (5 min por defecto, se reinicia con progreso) y
+  un error del protocolo (timeout, error de la tool) conserva la sesion; solo se descarta si el transporte murio.
+  Verificado: dos timeouts seguidos, mismo proceso de Chrome, la pestana sigue y la llamada siguiente funciona.
+
 ## 0.4.1 - 2026-09-23
 
 - **Sin cuadros "¿Salir del sitio?"**: nuevo `ps/no-leave-dialogs.js`, cargado como `--init-script` en todas las paginas

@@ -39,6 +39,7 @@ const DEFAULTS = {
     storageState: '',            // bolsa común de logins (portable entre navegadores); vacío = ~/.tcllm/storage-state.json
     freeFileDialogs: false,      // --init-page para no interceptar el diálogo de archivos (útil para humanos)
     blockLeaveDialogs: true,     // --init-script que impide los cuadros "¿Salir del sitio?" (beforeunload) en todas las páginas
+    callTimeoutMs: 300000,       // tiempo máximo de una llamada a una tool del navegador (el SDK traía 60 s)
     extraArgs: [],
     restartDelayMs: 3000,
   },

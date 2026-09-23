@@ -6,6 +6,7 @@ import path from 'node:path';
 import fs from 'node:fs';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
+import { McpError, ErrorCode } from '@modelcontextprotocol/sdk/types.js';
 import { createRequire } from 'node:module';
 import { PKG_ROOT, getConfig } from './config.js';
 import { log } from './log.js';
@@ -226,10 +227,21 @@ class PlaywrightSupervisor {
     return this.tools;
   }
 
+  /** Llama a una tool del Playwright MCP.
+   *  - Timeout propio (playwright.callTimeoutMs, 5 min por defecto) en vez del de 60 s del SDK, que cortaba llamadas largas
+   *    (browser_run_code_unsafe con esperas de 100-170 s).
+   *  - Un error del protocolo (McpError: timeout, error de la tool) NO cierra la sesión: si TCLLM era el último cliente,
+   *    @playwright/mcp cierra el navegador compartido al irse la sesión y todos los agentes pierden sus pestañas.
+   *    Solo se descarta el cliente si el transporte murió (servidor caído, sesión inexistente). */
   async callTool(name, args = {}) {
     const c = await this.getClient();
-    try { return await c.callTool({ name, arguments: args }); }
-    catch (e) { this._dropClient(); throw e; }
+    const timeout = this.cfg.callTimeoutMs || 300000;
+    try { return await c.callTool({ name, arguments: args }, undefined, { timeout, resetTimeoutOnProgress: true, maxTotalTimeout: timeout }); }
+    catch (e) {
+      if (!(e instanceof McpError)) this._dropClient();
+      else if (e.code === ErrorCode.RequestTimeout) L.warn(`${name}: sin respuesta en ${Math.round(timeout / 1000)} s (la sesión con el navegador se conserva)`);
+      throw e;
+    }
   }
 
   async status() {
