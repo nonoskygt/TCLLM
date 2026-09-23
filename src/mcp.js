@@ -55,7 +55,11 @@ Reglas: usa vm_run (PowerShell dentro) para obtener información, no interpretes
 vm_restart (nunca "shutdown /r" a mano: bajo Hyper-V el reinicio se cuelga y vm_restart lo vigila); vm_type para texto corto ASCII,
 vm_paste para texto largo/Unicode. Las coordenadas de vm_click son las de la última vm_screenshot.
 Navegador: browser_list muestra los navegadores disponibles (Chrome, Edge, Brave, Firefox, Chromium, WebKit) y el activo; browser_use cambia de
-navegador (relanza Playwright: se pierden las pestañas de todos los agentes); browser_install descarga Firefox/Chromium/WebKit.`;
+navegador (relanza Playwright: se pierden las pestañas de todos los agentes); browser_install descarga Firefox/Chromium/WebKit.
+Navegador COMPARTIDO entre agentes: trabajá en una pestaña propia (browser_tabs action=new ... action=close) y no toques las de otros.
+PROHIBIDO abrir ventanas o contextos nuevos (browser.newContext, browser.newPage, window.open, storageState en otro contexto dentro de
+browser_run_code_unsafe): cada contexto abre una ventana en el escritorio del usuario. Los logins ya están en el perfil compartido.
+Nada de bucles que abran cosas cada pocos segundos; llamadas cortas.`;
 
 // ---------- Streamable HTTP (sesiones) ----------
 const sessions = new Map(); // sessionId -> transport

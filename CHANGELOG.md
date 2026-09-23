@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.4.8 - 2026-09-23
+
+- **Regla para los agentes: sin ventanas nuevas en el navegador compartido.** Un script de verificacion de un agente
+  abria un contexto nuevo (con el storageState copiado) cada ~5 s, y cada contexto es una ventana en el escritorio del
+  usuario. La skill `tcllm` y las instrucciones del MCP ahora dicen: trabajar en una pestana propia
+  (`browser_tabs new` ... `close`), PROHIBIDO `browser.newContext`/`newPage`/`window.open` dentro de
+  `browser_run_code_unsafe`, nada de bucles que abran cosas cada pocos segundos, e identificarse con `X-TCLLM-Client`.
+
 ## 0.4.7 - 2026-09-23
 
 - **Panel -> Navegador -> Pestanas: que agente usa cada pestana.** Lista las pestanas abiertas del navegador compartido

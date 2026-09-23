@@ -87,6 +87,12 @@ TCLLM corre en \`${url}\` (panel: \`${url}/\`). Úsalo por **MCP** (servidor \`t
 
 > Un solo Playwright compartido: \`browser_use\` lo **relanza** y afecta a todos los agentes conectados (se pierden las pestañas). Cámbialo solo cuando te lo pidan; si el navegador ya es el activo, no hace nada. Chrome, Edge y Brave ya vienen instalados; Firefox/Chromium/WebKit se bajan con \`browser_install\`.
 
+## Navegador compartido: reglas de convivencia (el usuario lo pidió explícitamente)
+- **Trabajá en una PESTAÑA propia**: \`browser_tabs { "action": "new" }\`, navegá ahí y al terminar \`browser_tabs { "action": "close" }\`. No toques pestañas de otros agentes.
+- **Prohibido abrir ventanas o contextos nuevos**: nada de \`browser.newContext()\`, \`browser.newPage()\`, \`window.open\` ni copiar \`storageState\` a otro contexto dentro de \`browser_run_code_unsafe\`. Cada contexto nuevo abre una VENTANA en el escritorio del usuario. Los logins ya están en el perfil compartido: no hace falta otro contexto.
+- **Nada de bucles** que abran o recarguen cosas cada pocos segundos. Llamadas cortas (< 30 s); si hace falta esperar, esperá dentro de una sola llamada.
+- Identificate por REST con la cabecera \`X-TCLLM-Client: <tu-nombre>\` (así el usuario ve qué agente usa cada pestaña en el panel).
+
 ## Flujo con una VM
 1. \`vm_list\` → estado. Si no está \`running\`: \`vm_start\` (tarda 1-5 min; espera solo).
 2. \`vm_screenshot\` → mira la pantalla. Coordenadas de \`vm_click\`/\`vm_drag\` = las de esa imagen.

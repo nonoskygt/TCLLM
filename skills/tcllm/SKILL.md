@@ -16,6 +16,12 @@ TCLLM corre en `http://127.0.0.1:7777` (panel: `http://127.0.0.1:7777/`). Úsalo
 
 > Un solo Playwright compartido: `browser_use` lo **relanza** y afecta a todos los agentes conectados (se pierden las pestañas). Cámbialo solo cuando te lo pidan; si el navegador ya es el activo, no hace nada. Chrome, Edge y Brave ya vienen instalados; Firefox/Chromium/WebKit se bajan con `browser_install`.
 
+## Navegador compartido: reglas de convivencia (el usuario lo pidió explícitamente)
+- **Trabajá en una PESTAÑA propia**: `browser_tabs { "action": "new" }`, navegá ahí y al terminar `browser_tabs { "action": "close" }`. No toques pestañas de otros agentes.
+- **Prohibido abrir ventanas o contextos nuevos**: nada de `browser.newContext()`, `browser.newPage()`, `window.open` ni copiar `storageState` a otro contexto dentro de `browser_run_code_unsafe`. Cada contexto nuevo abre una VENTANA en el escritorio del usuario. Los logins ya están en el perfil compartido: no hace falta otro contexto.
+- **Nada de bucles** que abran o recarguen cosas cada pocos segundos. Llamadas cortas (< 30 s); si hace falta esperar, esperá dentro de una sola llamada.
+- Identificate por REST con la cabecera `X-TCLLM-Client: <tu-nombre>` (así el usuario ve qué agente usa cada pestaña en el panel).
+
 ## Flujo con una VM
 1. `vm_list` → estado. Si no está `running`: `vm_start` (tarda 1-5 min; espera solo).
 2. `vm_screenshot` → mira la pantalla. Coordenadas de `vm_click`/`vm_drag` = las de esa imagen.
@@ -65,6 +71,8 @@ TCLLM corre en `http://127.0.0.1:7777` (panel: `http://127.0.0.1:7777/`). Úsalo
 - `browser_install`: Descarga e instala una build de Playwright (chromium, firefox o webkit; 100-200 MB). BLOQUEA hasta terminar (de segundos a varios minutos según la conexión); si tu cliente corta por timeout la descarga sigue: vuelve a llamar, es idempotente. Chrome/Edge/Brave se instalan desde su web.
 - `browser_windows_show`: Muestra las ventanas del navegador controlado por Playwright.
 - `browser_windows_hide`: Oculta las ventanas del navegador controlado por Playwright (sigue funcionando).
+- `sessions_status`: Estado de las sesiones persistentes: modo (persistent/isolated), perfiles en disco por navegador y qué logins hay en la bolsa común (cookies y dominios).
+- `sessions_save`: Guarda en la bolsa común los logins que haya ahora en el perfil del navegador activo, para que se puedan llevar a otro navegador. OJO: reinicia el navegador (el perfil está bloqueado mientras corre) y se pierden las pestañas abiertas.
 - `services_status`: Estado de todos los servicios: TCLLM, VirtualBox, cada VM, Playwright MCP (navegador) y el host (CPU/RAM/discos).
 - `service_restart`: Reinicia un servicio gestionado: "playwright" (servidor MCP del navegador) o "bridge" (puente PowerShell).
 - `services_events`: Últimos eventos del monitor (cambios de estado, reinicios, avisos).
