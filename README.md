@@ -48,7 +48,10 @@ Desinstalar: `%LOCALAPPDATA%\TCLLM\scripts\uninstall.ps1` (`-Purge` borra tambi�
   36 tools propias — 25 `vm_*`, 5 de ventanas (`windows_list`, `window_show/hide`, `browser_windows_show/hide`),
   3 de navegadores (`browser_list`, `browser_use`, `browser_install`), 3 de servicios (`services_status`, `service_restart`,
   `services_events`) — más las del Playwright MCP como `browser_*` (proxy 1:1; 25 en @playwright/mcp 0.0.82).
-- **MCP (stdio)**: `tcllm mcp-stdio` (para clientes sin HTTP).
+- **MCP (stdio, recomendado para agentes locales)**: `tcllm mcp-stdio` es un puente que sobrevive a los reinicios de
+  TCLLM (espera y reintenta; con HTTP, Claude Code deja la conexión caída y hay que reconectar a mano).
+  `tcllm mcp-stdio --browser-only` expone solo las tools del Playwright MCP con sus nombres de siempre.
+  `tcllm install-agents` ya configura Claude Code así.
 - **REST**: `POST /api/tools/<tool>` con JSON; rutas de conveniencia `/api/vms/:vm/...`, `/api/browser/...`, `/api/windows`, `/api/status`.
   OpenAPI en `/api/openapi.json`; definiciones OpenAI function-calling en `/api/tools/openai`; skill en `/api/skill.md`.
 - Panel → **Conectar agentes** muestra los snippets exactos por agente y los instala con un clic.

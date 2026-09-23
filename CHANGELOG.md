@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.4.4 - 2026-09-23
+
+- **Las sesiones de los agentes ya no se caen cuando TCLLM se reinicia.** Con MCP por HTTP, Claude Code ve el puerto
+  cerrado durante el reinicio, marca el servidor como caido y no reintenta: habia que hacer `/mcp` -> Reconnect a mano en
+  cada sesion. Nuevo `src/stdio-bridge.js`: `tcllm mcp-stdio` es ahora un puente liviano que cada sesion lanza como
+  proceso hijo; reenvia las llamadas a la API REST del servidor y, si el servidor no contesta, espera y reintenta
+  (hasta 2 min). Si al arrancar no hay servidor, usa la ultima lista de tools guardada.
+  - `--browser-only`: solo las tools del Playwright MCP, con sus nombres de siempre (sustituye a la entrada `playwright`).
+  - El puente no lanza Playwright ni toca VirtualBox por su cuenta (el `mcp-stdio` anterior levantaba su propio
+    supervisor y podia duplicar el Playwright). Todas sus llamadas quedan en `/api/calls` con el nombre de la sesion.
+  - `tcllm install-agents` configura Claude Code con el puente (`tcllm` y `playwright`); la API key la lee el puente.
+  - Verificado: una sesion MCP abierta sigue funcionando tras matar y relanzar el servidor, sin reconectar
+    (`test/stdio-bridge.mjs`).
+
 ## 0.4.3 - 2026-09-23
 
 - **Registro de llamadas: quien usa el navegador.** Nuevo `src/calls.js`. Cada llamada a una tool que pasa por TCLLM

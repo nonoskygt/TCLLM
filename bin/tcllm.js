@@ -11,7 +11,9 @@ const flag = (n) => { const i = rest.indexOf(n); return i >= 0 ? rest[i + 1] : n
 const HELP = `TCLLM ${VERSION} — Total Control for LLMs
   tcllm start                       arranca el servidor (API + MCP + panel + monitor)
   tcllm status                      estado resumido (llama a la API local)
-  tcllm mcp-stdio                   servidor MCP por stdio (para clientes sin HTTP)
+  tcllm mcp-stdio [--browser-only] [--name X]
+                                    puente MCP por stdio hacia el servidor TCLLM: sobrevive a sus reinicios (espera y
+                                    reintenta). --browser-only = solo las tools del Playwright MCP (sustituye a "playwright")
   tcllm install-agents [--for a,b]  configura MCP + skill en los agentes detectados (claude,codex,opencode,qwen,gemini,cursor,windsurf)
   tcllm apikey                      muestra la API key
   tcllm config                      ruta y contenido (sin secretos) de config.json
@@ -30,16 +32,12 @@ process.on('unhandledRejection', crash('unhandledRejection'));
 switch (cmd) {
   case 'start': { const { startServer } = await import('../src/server.js'); await startServer(); break; }
   case 'mcp-stdio': {
-    // stdout es el transporte MCP: los logs van a stderr
-    const { logger } = await import('../src/log.js');
+    // Puente stdio -> servidor TCLLM (REST). No lanza Playwright ni toca VirtualBox por su cuenta: si el servidor se
+    // reinicia, espera y reintenta, así el agente no pierde la conexión MCP. stdout es el canal MCP: logs a stderr.
     console.log = (...a) => console.error(...a);
     loadConfig();
-    const { runStdio } = await import('../src/mcp.js');
-    const { bridge } = await import('../src/bridge.js');
-    const { playwright } = await import('../src/playwright.js');
-    bridge.start().catch(() => {});
-    playwright.start().catch(() => {});
-    await runStdio();
+    const { runBridge } = await import('../src/stdio-bridge.js');
+    await runBridge({ browserOnly: rest.includes('--browser-only'), name: flag('--name') });
     break;
   }
   case 'status': {

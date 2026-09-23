@@ -44,7 +44,14 @@ export function snippets() {
   const url = mcpUrl(), k = key();
   return {
     url, apiKey: k,
-    claude: { file: AGENTS.claude.config, cli: `claude mcp add --scope user --transport http tcllm ${url} --header "Authorization: Bearer ${k}"`, json: { mcpServers: { tcllm: { type: 'http', url, headers: { Authorization: `Bearer ${k}` } } } } },
+    // Claude Code va por el puente stdio (src/stdio-bridge.js): con HTTP, un reinicio de TCLLM deja la conexión "failed" y
+    // hay que hacer /mcp -> Reconnect a mano en cada sesión. El puente espera y reintenta solo. "playwright" queda como
+    // el mismo puente en modo --browser-only (mismas tools y nombres que el Playwright MCP). La key la lee el puente.
+    claude: { file: AGENTS.claude.config, cli: `claude mcp add --scope user tcllm -- "${process.execPath}" "${path.join(PKG_ROOT, 'bin', 'tcllm.js')}" mcp-stdio`, json: { mcpServers: {
+      tcllm: { type: 'stdio', command: process.execPath, args: [path.join(PKG_ROOT, 'bin', 'tcllm.js'), 'mcp-stdio'], env: {} },
+      playwright: { type: 'stdio', command: process.execPath, args: [path.join(PKG_ROOT, 'bin', 'tcllm.js'), 'mcp-stdio', '--browser-only'], env: {} },
+    } } },
+    claudeHttp: { note: 'Alternativa por HTTP (se cae con cada reinicio de TCLLM)', json: { mcpServers: { tcllm: { type: 'http', url, headers: { Authorization: `Bearer ${k}` } } } } },
     codex: { file: AGENTS.codex.config, toml: `[mcp_servers.tcllm]\nurl = "${url}"\nbearer_token_env_var = "TCLLM_API_KEY"\n`, env: `setx TCLLM_API_KEY "${k}"`, cli: `codex mcp add tcllm --url ${url} --bearer-token-env-var TCLLM_API_KEY` },
     opencode: { file: AGENTS.opencode.config, json: { mcp: { tcllm: { type: 'remote', url, enabled: true, oauth: false, headers: { Authorization: `Bearer ${k}` } } } } },
     qwen: { file: AGENTS.qwen.config, json: { mcpServers: { tcllm: { httpUrl: url, headers: { Authorization: `Bearer ${k}` }, timeout: 120000 } } } },
