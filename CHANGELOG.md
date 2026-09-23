@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.4.1 - 2026-09-23
+
+- **Sin cuadros "¿Salir del sitio?"**: nuevo `ps/no-leave-dialogs.js`, cargado como `--init-script` en todas las paginas
+  (`playwright.blockLeaveDialogs`, activo por defecto). Impide que los sitios registren `beforeunload`, que dejaba a los
+  agentes colgados hasta el timeout al navegar y trababa el cierre limpio del navegador. Contrapartida: un formulario a
+  medio llenar se pierde sin aviso al salir.
+- Cierre limpio con respaldo: si tras el WM_CLOSE el navegador sigue vivo (un cuadro de una pagina vieja), se fuerza el
+  cierre para no dejar el perfil bloqueado ("Browser is already in use").
+- Test: `test/leave-dialogs.mjs` (verificado en rojo sin el arreglo: la navegacion se cuelga; y en verde con el).
+- Conocido: Firefox a veces no cierra con WM_CLOSE en 25 s (aviso propio de cerrar pestanas) y se fuerza.
+
 ## 0.4.0 - 2026-09-22
 
 - **Sesiones persistentes (nueva feature).** Los logins dejan de perderse:

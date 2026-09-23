@@ -18,6 +18,7 @@ const L = log('playwright');
 const VERSION = createRequire(import.meta.url)('../package.json').version;
 const CLI = path.join(PKG_ROOT, 'node_modules', '@playwright', 'mcp', 'cli.js');
 const INIT_PAGE = path.join(PKG_ROOT, 'ps', 'init-page.cjs');
+const NO_LEAVE_DIALOGS = path.join(PKG_ROOT, 'ps', 'no-leave-dialogs.js');
 
 class PlaywrightSupervisor {
   constructor() { this.proc = null; this.restarts = 0; this.startedAt = null; this.lastExit = null; this.stopping = false; this.client = null; this.tools = null; this.events = []; }
@@ -53,6 +54,8 @@ class PlaywrightSupervisor {
     }
     if (c.headless) a.push('--headless');
     if (c.freeFileDialogs) a.push('--init-page', INIT_PAGE);
+    // Sin cuadros "¿Salir del sitio?" (beforeunload): bloquean a los agentes y el cierre limpio del navegador.
+    if (c.blockLeaveDialogs !== false) a.push('--init-script', NO_LEAVE_DIALOGS);
     a.push('--allow-unrestricted-file-access');
     return [...a, ...(c.extraArgs || [])];
   }
@@ -118,7 +121,10 @@ class PlaywrightSupervisor {
       'foreach ($k in $kids) { Start-Process taskkill.exe -ArgumentList @("/PID", "$($k.ProcessId)") -NoNewWindow -Wait }',
       `$deadline = (Get-Date).AddMilliseconds(${timeoutMs})`,
       `while ((Get-Date) -lt $deadline) { if (@(${kids}).Count -eq 0) { break }; Start-Sleep -Milliseconds 300 }`,
-      `Write-Output ("closed=" + $kids.Count + " left=" + @(${kids}).Count)`,
+      // Si sigue vivo (p.ej. un cuadro "¿Salir del sitio?" de una página cargada antes del init-script lo traba),
+      // se fuerza: mejor perder lo no volcado de esa pestaña que dejar el perfil bloqueado ("Browser is already in use").
+      `$left = @(${kids}); foreach ($k in $left) { Start-Process taskkill.exe -ArgumentList @("/PID", "$($k.ProcessId)", "/T", "/F") -NoNewWindow -Wait }`,
+      'Write-Output ("closed=" + $kids.Count + " forced=" + $left.Count)',
     ].join('; ');
     return new Promise((resolve) => {
       const p = spawn('powershell.exe', ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-Command', cmd], { windowsHide: true });
