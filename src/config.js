@@ -40,6 +40,10 @@ const DEFAULTS = {
     freeFileDialogs: false,      // --init-page para no interceptar el diálogo de archivos (útil para humanos)
     blockLeaveDialogs: true,     // --init-script que impide los cuadros "¿Salir del sitio?" (beforeunload) en todas las páginas
     callTimeoutMs: 300000,       // tiempo máximo de una llamada a una tool del navegador (el SDK traía 60 s)
+    // Argumentos extra para Chrome/Edge/Brave (van por un --config al Playwright MCP). --test-type oculta el aviso
+    // "No se admite el indicador --disable-blink-features=AutomationControlled" sin quitar ese indicador, que el MCP
+    // pone para que los sitios no detecten la automatización (y no bloqueen los logins).
+    chromeArgs: ['--test-type'],
     extraArgs: [],
     restartDelayMs: 3000,
   },

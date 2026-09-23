@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.4.5 - 2026-09-23
+
+- **Sin el aviso "No se admite el indicador --disable-blink-features=AutomationControlled".** Ese indicador lo agrega
+  `@playwright/mcp` a todo Chromium para que los sitios no detecten la automatizacion (`navigator.webdriver` = false);
+  se mantiene, porque sin el Google/Instagram/TikTok/LinkedIn bloquean mas los logins. Lo que se quita es el aviso:
+  nuevo `playwright.chromeArgs` (por defecto `--test-type`), que se pasa a Chrome/Edge/Brave con un `--config` al
+  Playwright MCP (`~/.tcllm/playwright-mcp.config.json`). Verificado: los dos indicadores presentes, webdriver false y
+  la barra del aviso ya no aparece.
+
 ## 0.4.4 - 2026-09-23
 
 - **Las sesiones de los agentes ya no se caen cuando TCLLM se reinicia.** Con MCP por HTTP, Claude Code ve el puerto

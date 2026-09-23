@@ -8,7 +8,7 @@ import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
 import { McpError, ErrorCode } from '@modelcontextprotocol/sdk/types.js';
 import { createRequire } from 'node:module';
-import { PKG_ROOT, getConfig } from './config.js';
+import { PKG_ROOT, HOME, getConfig } from './config.js';
 import { log } from './log.js';
 import * as windows from './windows.js';
 import * as browsers from './browsers.js';
@@ -57,6 +57,15 @@ class PlaywrightSupervisor {
     if (c.freeFileDialogs) a.push('--init-page', INIT_PAGE);
     // Sin cuadros "¿Salir del sitio?" (beforeunload): bloquean a los agentes y el cierre limpio del navegador.
     if (c.blockLeaveDialogs !== false) a.push('--init-script', NO_LEAVE_DIALOGS);
+    // Argumentos de Chrome: el MCP no tiene flag para eso, pero sí --config con browser.launchOptions.args (se combina
+    // con el resto y el MCP añade después su --disable-blink-features=AutomationControlled).
+    const cat = browsers.CATALOG[c.browser];
+    const chromium = cat && (cat.kind !== 'playwright' || cat.engine === 'chromium');
+    if (chromium && Array.isArray(c.chromeArgs) && c.chromeArgs.length) {
+      const file = path.join(HOME, 'playwright-mcp.config.json');
+      fs.writeFileSync(file, JSON.stringify({ browser: { launchOptions: { args: c.chromeArgs } } }, null, 2));
+      a.push('--config', file);
+    }
     a.push('--allow-unrestricted-file-access');
     return [...a, ...(c.extraArgs || [])];
   }
