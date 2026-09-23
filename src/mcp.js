@@ -7,6 +7,7 @@ import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import { ListToolsRequestSchema, CallToolRequestSchema } from '@modelcontextprotocol/sdk/types.js';
 import { createRequire } from 'node:module';
 import { tools, browserTools, callTool } from './tools.js';
+import { callCtx } from './calls.js';
 import { log } from './log.js';
 
 const L = log('mcp');
@@ -31,16 +32,17 @@ export function createMcpServer() {
       ...(await browserTools()).map(t => ({ name: t.name, description: `[Navegador Playwright] ${t.description}`, inputSchema: t.inputSchema })),
     ],
   }));
-  server.setRequestHandler(CallToolRequestSchema, async (req) => {
+  server.setRequestHandler(CallToolRequestSchema, async (req, extra) => {
     const { name, arguments: args } = req.params;
-    const t0 = Date.now();
+    // Identidad para el registro de llamadas (src/calls.js): nombre del cliente MCP + inicio del id de sesión
+    const st = callCtx.getStore();
+    const client = `${server.getClientVersion()?.name || 'cliente'}#${String(extra?.sessionId || st?.sid || '').slice(0, 8)}`;
+    const run = () => callTool(name, args || {});
     try {
-      const result = await callTool(name, args || {});
-      L.info(`${name} ok (${Date.now() - t0} ms)`);
+      const result = st ? await callCtx.run({ ...st, client }, run) : await callCtx.run({ via: 'mcp-stdio', client }, run);
       const isError = !!(result && result.upstream && result.upstream.isError);
       return { content: toMcpContent(result), isError };
     } catch (e) {
-      L.warn(`${name} error: ${e.message}`);
       return { content: [{ type: 'text', text: `Error: ${e.message}` }], isError: true };
     }
   });
@@ -71,7 +73,9 @@ export async function handleHttp(req, res) {
     const server = createMcpServer();
     await server.connect(transport);
   }
-  await transport.handleRequest(req, res, req.body);
+  // El contexto viaja con la petición hasta el handler de la tool (registro de llamadas: IP/puerto de origen)
+  const ctx = { via: 'mcp', client: '?', ip: req.socket?.remoteAddress, port: req.socket?.remotePort, serverPort: req.socket?.localPort, sid: sid || '' };
+  await callCtx.run(ctx, () => transport.handleRequest(req, res, req.body));
 }
 
 export function sessionCount() { return sessions.size; }

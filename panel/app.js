@@ -124,10 +124,26 @@ pageLoaders.browser = async () => {
     <div class="card"><h4>Endpoint MCP (directo)</h4><div class="big" style="font-size:14px">${esc(b.url)}</div><div class="muted">navegador ${esc(b.browser)} · ${b.sessions === 'persistent' ? 'sesiones persistentes (perfil en disco, contexto compartido)' : 'aislado (contexto por cliente, sin persistencia)'} · ${b.toolCount ?? '?'} tools</div></div>
     <div class="card"><h4>Ventanas</h4>${(b.windows || []).map(w => `<div class="row between"><span class="t">${esc(w.title)}</span><span class="tag ${w.visible ? 'ok' : ''}">${w.visible ? 'visible' : 'oculta'}</span></div>`).join('') || '<div class="muted">sin ventanas (se abren al navegar)</div>'}</div>`;
   await renderSessions();
+  await renderCalls();
   await renderBrowsers();
   const tools = await api('/browser/tools');
   $('#br-tools').innerHTML = tools.map(t => `<div class="item"><span class="t"><b>${esc(t.name)}</b> · ${esc(t.description)}</span></div>`).join('');
 };
+async function renderCalls() {
+  try {
+    const c = await api('/calls?browser=1&limit=15');
+    const secs = (ms) => (ms / 1000).toFixed(ms < 10000 ? 1 : 0) + ' s';
+    const whoOf = (x) => `${esc(x.via)}:${esc(x.client)}${x.proc ? ` <span class="muted">[${esc(x.proc)}]</span>` : ''}`;
+    const tag = (o) => `<span class="tag ${o === 'ok' ? 'ok' : o === 'en curso' ? 'warn' : 'down'}">${esc(o)}</span>`;
+    const row = (x) => `<div class="row between"><span class="t mono">${esc(x.startedAt.slice(11, 19))} · ${esc(x.tool)} · ${whoOf(x)}</span><span>${secs(x.ms)} ${tag(x.outcome)}</span></div>`;
+    $('#calls-box').innerHTML = `
+      <div class="card"><h4>En curso</h4>${c.inFlight.length ? c.inFlight.map(row).join('') : '<div class="muted">ninguna</div>'}</div>
+      <div class="card" style="margin-top:8px"><h4>Últimas</h4>${c.recent.length ? c.recent.map(row).join('') : '<div class="muted">todavía no hubo llamadas al navegador por TCLLM</div>'}</div>`;
+    $('#calls-msg').textContent = c.inFlight.some(x => x.ms > 30000) ? 'hay una llamada de más de 30 s en curso: puede estar trabando el navegador' : '';
+  } catch (e) { $('#calls-box').textContent = e.message; }
+}
+$('#calls-refresh').onclick = renderCalls;
+
 async function renderSessions() {
   try {
     const s = await api('/sessions');

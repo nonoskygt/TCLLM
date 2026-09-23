@@ -9,6 +9,7 @@ import { bridge } from './bridge.js';
 import { services } from './services.js';
 import * as browsers from './browsers.js';
 import * as sessions from './sessions.js';
+import { track } from './calls.js';
 
 const S = (properties, required = []) => ({ type: 'object', properties, required, additionalProperties: false });
 const VM = { type: 'string', description: 'Nombre de la VM en VirtualBox (p.ej. "Win11")' };
@@ -77,11 +78,11 @@ export async function browserTools() {
 
 export async function callTool(name, args = {}) {
   const t = toolByName[name];
-  if (t) return t.handler(args || {});
+  if (t) return track(name, () => t.handler(args || {}));
   if (name.startsWith('browser_')) {
     const bt = (await browserTools()).find(b => b.name === name);
     if (!bt) throw new Error(`Tool desconocida: ${name}`);
-    return { upstream: await playwright.callTool(bt.upstream, args || {}) };
+    return track(name, async () => ({ upstream: await playwright.callTool(bt.upstream, args || {}) }));
   }
   throw new Error(`Tool desconocida: ${name}`);
 }

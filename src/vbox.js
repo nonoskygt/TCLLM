@@ -48,19 +48,23 @@ function parseMachineReadable(text) {
 }
 
 /** Lista de VMs registradas: [{name, uuid}] */
+// Consultas (no operaciones): si VBoxSVC se cuelga, que no queden procesos VBoxManage esperando 2 minutos cada uno.
+// El monitor consulta cada 10 s y con el timeout largo se apilaban decenas (visto el 2026-09-23: 55 colgados).
+const QUERY_TIMEOUT = 20000;
+
 export async function list() {
-  const text = await run(['list', 'vms']);
+  const text = await run(['list', 'vms'], { timeout: QUERY_TIMEOUT });
   return [...text.matchAll(/^"(.+)" \{([0-9a-f-]+)\}/gm)].map(m => ({ name: m[1], uuid: m[2] }));
 }
 
 export async function running() {
-  const text = await run(['list', 'runningvms']);
+  const text = await run(['list', 'runningvms'], { timeout: QUERY_TIMEOUT });
   return [...text.matchAll(/^"(.+)" \{([0-9a-f-]+)\}/gm)].map(m => m[1]);
 }
 
 /** Info completa (showvminfo --machinereadable) como objeto plano. */
 export async function info(name) {
-  const raw = parseMachineReadable(await run(['showvminfo', name, '--machinereadable']));
+  const raw = parseMachineReadable(await run(['showvminfo', name, '--machinereadable'], { timeout: QUERY_TIMEOUT }));
   const snaps = [];
   for (const [k, v] of Object.entries(raw)) {
     const m = k.match(/^SnapshotName(-\d+)*$/);

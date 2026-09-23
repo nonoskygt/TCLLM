@@ -82,6 +82,13 @@ Para exponerlo a la red, en `playwright`: `"host": "0.0.0.0"`, `"port": 8931`, `
 (el servidor rechaza con 403 cualquier cabecera `Host` que no esté en la lista; `localhost:<port>` y `127.0.0.1:<port>` van siempre).
 TCLLM le habla por `127.0.0.1` (nunca por `localhost`, que en Windows puede resolver a `::1` y encontrarse con otro servidor ajeno).
 
+### Quién usa el navegador (registro de llamadas)
+Como el navegador es uno solo y compartido, un agente con una llamada trabada lo traba para todos. TCLLM registra cada
+llamada que pasa por él (REST y MCP del 7777): quién, qué tool, cuánto tardó y cómo terminó. No guarda argumentos.
+Panel → **Navegador → Actividad de agentes**, `GET /api/calls` y líneas `llamadas:` en el log. Las que siguen en curso
+más de 30 s se avisan con el proceso de Windows que las hace. Para identificarse por REST, mandá la cabecera
+`X-TCLLM-Client: <nombre>`. Los clientes conectados directo al 8931 no pasan por TCLLM y no aparecen.
+
 ### Sesiones persistentes (los logins no se pierden)
 Por defecto (`playwright.sessions: "persistent"`) cada navegador tiene **su perfil en disco** en `%USERPROFILE%\.tcllm\profiles\<navegador>`:
 

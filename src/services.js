@@ -76,7 +76,8 @@ class Services extends EventEmitter {
   }
 
   startMonitor() {
-    const tick = async () => { try { const s = await this.status(); super.emit('status', s); if (s.playwright?.enabled && !s.playwright.running && !s.playwright.listening) { L.warn('Playwright MCP no escucha: relanzando'); playwright.start().catch(() => {}); } } catch (e) { L.warn('monitor: ' + e.message); } };
+    // Sin solapar vueltas: si la anterior sigue esperando (p.ej. VirtualBox colgado), esta se salta en vez de apilar consultas
+    const tick = async () => { if (this.ticking) return; this.ticking = true; try { const s = await this.status(); super.emit('status', s); if (s.playwright?.enabled && !s.playwright.running && !s.playwright.listening) { L.warn('Playwright MCP no escucha: relanzando'); playwright.start().catch(() => {}); } } catch (e) { L.warn('monitor: ' + e.message); } finally { this.ticking = false; } };
     tick();
     this.timer = setInterval(tick, getConfig().monitor.intervalMs);
   }

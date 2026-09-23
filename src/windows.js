@@ -27,9 +27,17 @@ export async function browserPids(ownerPid) {
   return { ours, others };
 }
 
+// Nombres de VM solo para poner nombre a las ventanas de VirtualBoxVM: si VirtualBox no contesta rápido, se usa la
+// última lista buena. Así la lista de ventanas (y browser_list, el panel...) no se cuelga cuando se cuelga VBoxSVC.
+let lastVms = [];
+async function vmsQuick(ms = 4000) {
+  const got = await Promise.race([vbox.list().then(v => (lastVms = v)).catch(() => null), new Promise(r => setTimeout(() => r(null), ms))]);
+  return got || lastVms;
+}
+
 /** Lista clasificada de ventanas relevantes: [{hwnd,pid,process,title,visible,kind,vm}] */
 export async function list({ includeHidden = true, ownerPid = null } = {}) {
-  const [wins, vms, pw] = await Promise.all([bridge.call('windows', { includeHidden }), vbox.list(), browserPids(ownerPid ?? browserOwnerPid)]);
+  const [wins, vms, pw] = await Promise.all([bridge.call('windows', { includeHidden }), vmsQuick(), browserPids(ownerPid ?? browserOwnerPid)]);
   const out = [];
   for (const w of wins) {
     let kind = null, vm = null;

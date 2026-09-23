@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.4.3 - 2026-09-23
+
+- **Registro de llamadas: quien usa el navegador.** Nuevo `src/calls.js`. Cada llamada a una tool que pasa por TCLLM
+  (API REST y MCP del 7777) queda registrada con quien llama, la tool, la duracion y el resultado, sin argumentos.
+  Identidad: cabecera `X-TCLLM-Client` (REST), `clientInfo` + sesion (MCP) y, si la llamada tarda, el proceso de
+  Windows que la hace. Las que siguen en curso mas de 30 s se avisan en el log (`EN CURSO hace N s`).
+  `GET /api/calls` y seccion **Actividad de agentes** en el panel. Los clientes conectados directo al 8931 no pasan
+  por TCLLM y no quedan registrados.
+- **VirtualBox colgado ya no traba TCLLM.** Las consultas a VBoxManage tienen limite de 20 s (antes 2 min), el monitor
+  no solapa vueltas y la lista de ventanas usa la ultima lista de VMs buena si VirtualBox no contesta en 4 s. Visto el
+  23/09: con VBoxSVC colgado se apilaron 55 VBoxManage y `/windows`, `/browser` y `browser_list` no respondian.
+- Test: `test/calls.mjs`.
+
 ## 0.4.2 - 2026-09-23
 
 - **Una llamada larga ya no tumba el Chrome compartido.** `playwright.callTool` usaba el timeout de 60 s del SDK de MCP y,

@@ -97,6 +97,11 @@
       <span class="muted">exporta el perfil activo a la bolsa común (reinicia el navegador)</span>
     </div>
 
+    <h2>Actividad de agentes</h2>
+    <p class="muted">Quién está usando el navegador a través de TCLLM (API REST y MCP del 7777): llamadas en curso y las últimas terminadas. Una llamada que sigue en curso mucho tiempo traba el navegador compartido para todos. Los clientes conectados directo al 8931 no aparecen aquí. Para identificarse por REST, un agente manda la cabecera <code>X-TCLLM-Client: &lt;nombre&gt;</code>.</p>
+    <div class="row"><button id="calls-refresh">Actualizar</button><span id="calls-msg" class="muted"></span></div>
+    <div id="calls-box"></div>
+
     <h2>Navegadores</h2>
     <p class="muted">Playwright funciona con Chrome, Edge y Brave (los instalados en el sistema) y con sus propias builds de Chromium, Firefox y WebKit (se descargan aquí). Cambiar de navegador relanza el Playwright MCP.</p>
     <div class="grid" id="br-browsers"></div>

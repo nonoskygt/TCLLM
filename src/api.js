@@ -8,6 +8,7 @@ import { getConfig, saveConfig, redactedConfig } from './config.js';
 import { logger } from './log.js';
 import * as agents from './agents.js';
 import { sessionCount } from './mcp.js';
+import { callCtx, restContext, status as callsStatus } from './calls.js';
 import crypto from 'node:crypto';
 
 const VERSION = createRequire(import.meta.url)('../package.json').version;
@@ -28,6 +29,9 @@ const wrap = (fn) => (req, res) => Promise.resolve(fn(req, res)).then((r) => { i
 export function apiRouter() {
   const r = express.Router();
   r.use(express.json({ limit: '10mb' }));
+  // Cada petición corre con la identidad de quien llama (X-TCLLM-Client / User-Agent / IP), para el registro de llamadas
+  r.use((req, res, next) => callCtx.run(restContext(req), next));
+  r.get('/calls', wrap((req) => callsStatus({ limit: Math.min(200, Number(req.query.limit) || 50), browserOnly: req.query.browser === '1' })));
 
   // --- tools genéricos (cualquier LLM) ---
   r.get('/tools', wrap(async () => ({ tools: [...tools.map(t => ({ name: t.name, description: t.description, inputSchema: t.inputSchema })), ...(await browserTools()).map(t => ({ name: t.name, description: t.description, inputSchema: t.inputSchema, proxy: true }))] })));
