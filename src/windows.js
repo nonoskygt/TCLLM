@@ -46,10 +46,20 @@ export async function list({ includeHidden = true, ownerPid = null } = {}) {
     else if (pw.others.has(w.pid)) kind = 'browser-other';
     else if (/^VirtualBox$/i.test(w.process)) kind = 'vbox-manager';
     if (!kind) continue;
-    if (!w.visible && !hiddenByUs.has(String(w.hwnd))) continue; // ventanas ocultas ajenas no nos incumben
-    out.push({ ...w, hwnd: String(w.hwnd), kind, vm });
+    // Ventanas ocultas ajenas no nos incumben. Las de NUESTRO navegador sí, aunque no las haya ocultado TCLLM: el 23/09
+    // la ventana del Chrome de los agentes nació oculta y "mostrar" no la veía (nadie encontraba las pestañas).
+    if (!w.visible && !hiddenByUs.has(String(w.hwnd)) && kind !== 'browser') continue;
+    out.push({ ...w, hwnd: String(w.hwnd), kind, vm, hiddenByTcllm: hiddenByUs.has(String(w.hwnd)) });
   }
   return out;
+}
+
+/** Muestra las ventanas de nuestro navegador que estén ocultas SIN que TCLLM las haya ocultado (browser_windows_hide).
+ *  Lo llama el monitor: el navegador de los agentes tiene que estar a la vista salvo que alguien lo oculte a propósito. */
+export async function ensureBrowserVisible() {
+  const hidden = (await list()).filter(w => w.kind === 'browser' && !w.visible && !w.hiddenByTcllm);
+  for (const w of hidden) await bridge.call('show', { hwnd: w.hwnd });
+  return hidden.length;
 }
 
 export async function show(hwnd) { await bridge.call('show', { hwnd }); hiddenByUs.delete(String(hwnd)); return { hwnd, visible: true }; }

@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.4.6 - 2026-09-23
+
+- **La ventana del navegador de los agentes ya no queda oculta sin que nadie la pueda mostrar.** El 23/09 la ventana
+  del Chrome de TCLLM aparecio oculta (nadie encontraba las pestanas) y `browser_windows_show` no la veia: la lista de
+  ventanas descartaba las ocultas que no habia ocultado TCLLM. Ahora las del propio navegador se listan siempre, y el
+  monitor las vuelve a mostrar si estan ocultas sin que alguien las haya ocultado a proposito (`browser_windows_hide`
+  se respeta). Config: `playwright.keepBrowserVisible` (por defecto true). Verificado: oculta a escondidas -> vuelve
+  a verse en ~20 s; ocultada con TCLLM -> sigue oculta; mostrar -> visible.
+
 ## 0.4.5 - 2026-09-23
 
 - **Sin el aviso "No se admite el indicador --disable-blink-features=AutomationControlled".** Ese indicador lo agrega

@@ -44,6 +44,7 @@ const DEFAULTS = {
     // "No se admite el indicador --disable-blink-features=AutomationControlled" sin quitar ese indicador, que el MCP
     // pone para que los sitios no detecten la automatización (y no bloqueen los logins).
     chromeArgs: ['--test-type'],
+    keepBrowserVisible: true,    // el monitor muestra la ventana del navegador si aparece oculta sin que TCLLM la haya ocultado
     extraArgs: [],
     restartDelayMs: 3000,
   },

@@ -6,6 +6,7 @@ import { createRequire } from 'node:module';
 import * as vbox from './vbox.js';
 import { playwright } from './playwright.js';
 import { bridge } from './bridge.js';
+import * as windows from './windows.js';
 import { getConfig } from './config.js';
 import { log } from './log.js';
 
@@ -77,7 +78,11 @@ class Services extends EventEmitter {
 
   startMonitor() {
     // Sin solapar vueltas: si la anterior sigue esperando (p.ej. VirtualBox colgado), esta se salta en vez de apilar consultas
-    const tick = async () => { if (this.ticking) return; this.ticking = true; try { const s = await this.status(); super.emit('status', s); if (s.playwright?.enabled && !s.playwright.running && !s.playwright.listening) { L.warn('Playwright MCP no escucha: relanzando'); playwright.start().catch(() => {}); } } catch (e) { L.warn('monitor: ' + e.message); } finally { this.ticking = false; } };
+    const tick = async () => { if (this.ticking) return; this.ticking = true; try {
+      // El navegador de los agentes tiene que estar a la vista (salvo headless u ocultado a propósito con browser_windows_hide)
+      const pw = getConfig().playwright;
+      if (!pw.headless && pw.keepBrowserVisible !== false) { const n = await windows.ensureBrowserVisible().catch(() => 0); if (n) L.info(`ventana del navegador estaba oculta: mostrada (${n})`); }
+      const s = await this.status(); super.emit('status', s); if (s.playwright?.enabled && !s.playwright.running && !s.playwright.listening) { L.warn('Playwright MCP no escucha: relanzando'); playwright.start().catch(() => {}); } } catch (e) { L.warn('monitor: ' + e.message); } finally { this.ticking = false; } };
     tick();
     this.timer = setInterval(tick, getConfig().monitor.intervalMs);
   }
