@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.5.1 - 2026-10-01
+
+- **Skill: plan B para redes sin DNS.** Una VM de la LAN (con dos tarjetas, una en 192.168.2.0/24) confirmo que el nombre
+  de host no resuelve en su red (ni DNS ni mDNS) y que su `/etc/hosts` fijaba la IP vieja del cable. La skill ahora dice:
+  si el nombre no resuelve, no fijar una sola IP; probar las dos de la laptop (cable y Wi-Fi) y usar la que responda
+  (`GET /mcp` da 400), y que el tunel pruebe ambas en orden. El buscador pasa a ser opcional ("revisalo antes de correrlo").
+
 ## 0.5.0 - 2026-10-01
 
 - **Conexion por nombre de host en vez de IP.** La laptop cambia de IP segun este por cable (`.21`) o por Wi-Fi (`.196`);

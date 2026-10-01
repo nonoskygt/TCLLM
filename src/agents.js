@@ -97,7 +97,8 @@ TCLLM corre en \`${url}\` (panel: \`${url}/\`). Úsalo por **MCP** (servidor \`t
 ## Conectarse desde OTRA máquina de la red: por NOMBRE, nunca por IP
 La laptop cambia de IP según esté por cable o por Wi-Fi (y el router le da otra al reconectar). Una IP guardada en una config, en \`/etc/hosts\` o en un \`socat\` deja de funcionar sin avisar.
 - **URL del navegador compartido**: \`http://${os.hostname()}:8931/mcp\` (el nombre de host de la laptop). No escribas ninguna IP.
-- Si el nombre no resuelve o la conexión queda "failed": \`curl -fsSL ${FIND_URL} -o find-tcllm.mjs && node find-tcllm.mjs\` imprime la URL vigente (prueba el nombre, la última dirección buena y, si hace falta, barre tu red local). Úsala y reintentá; no edites la config con una IP.
+- **Si tu red no resuelve el nombre** (hay redes sin DNS ni mDNS): no fijes UNA IP. La laptop tiene dos posibles, cable y Wi-Fi, y solo una está activa a la vez: probá las dos y usá la que responda (\`curl -s -m 3 -o /dev/null -w '%{http_code}' http://<IP>:8931/mcp\` da 400 cuando es el MCP). Las IPs vigentes están en el panel, Conexiones. Que tu túnel o \`socat\` pruebe ambas en orden en vez de apuntar a una sola.
+- Si la conexión queda "failed" y preferís no probar a mano: \`curl -fsSL ${FIND_URL} -o find-tcllm.mjs && node find-tcllm.mjs\` imprime la URL vigente (prueba el nombre, la última dirección buena y, si hace falta, barre tu red local). Es opcional: revisalo antes de correrlo.
 - El firewall solo deja entrar a las redes que el usuario permitió en el panel (Conexiones). Si tu red no está, no insistas: avisale.
 
 ## Flujo con una VM
