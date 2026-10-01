@@ -10,6 +10,7 @@ import os from 'node:os';
 import { execFileSync } from 'node:child_process';
 import { getConfig, PKG_ROOT } from './config.js';
 import { tools } from './tools.js';
+import { FIND_URL } from './access.js';
 import { log } from './log.js';
 
 const L = log('agents');
@@ -92,6 +93,12 @@ TCLLM corre en \`${url}\` (panel: \`${url}/\`). Úsalo por **MCP** (servidor \`t
 - **Prohibido abrir ventanas o contextos nuevos**: nada de \`browser.newContext()\`, \`browser.newPage()\`, \`window.open\` ni copiar \`storageState\` a otro contexto dentro de \`browser_run_code_unsafe\`. Cada contexto nuevo abre una VENTANA en el escritorio del usuario. Los logins ya están en el perfil compartido: no hace falta otro contexto.
 - **Nada de bucles** que abran o recarguen cosas cada pocos segundos. Llamadas cortas (< 30 s); si hace falta esperar, esperá dentro de una sola llamada.
 - Identificate por REST con la cabecera \`X-TCLLM-Client: <tu-nombre>\` (así el usuario ve qué agente usa cada pestaña en el panel).
+
+## Conectarse desde OTRA máquina de la red: por NOMBRE, nunca por IP
+La laptop cambia de IP según esté por cable o por Wi-Fi (y el router le da otra al reconectar). Una IP guardada en una config, en \`/etc/hosts\` o en un \`socat\` deja de funcionar sin avisar.
+- **URL del navegador compartido**: \`http://${os.hostname()}:8931/mcp\` (el nombre de host de la laptop). No escribas ninguna IP.
+- Si el nombre no resuelve o la conexión queda "failed": \`curl -fsSL ${FIND_URL} -o find-tcllm.mjs && node find-tcllm.mjs\` imprime la URL vigente (prueba el nombre, la última dirección buena y, si hace falta, barre tu red local). Úsala y reintentá; no edites la config con una IP.
+- El firewall solo deja entrar a las redes que el usuario permitió en el panel (Conexiones). Si tu red no está, no insistas: avisale.
 
 ## Flujo con una VM
 1. \`vm_list\` → estado. Si no está \`running\`: \`vm_start\` (tarda 1-5 min; espera solo).

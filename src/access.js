@@ -13,13 +13,38 @@ const L = log('access');
 const FW_SCRIPT = path.join(PKG_ROOT, 'ps', 'firewall.ps1');
 const RULE = (port) => `TCLLM Playwright (${port})`;
 
-/** IPv4 no internas de la máquina, con su interfaz. */
+const VIRTUAL_MAC = /^(0a|08):00:27|^00:50:56|^00:0c:29|^00:15:5d/i;   // VirtualBox, VMware, Hyper-V
+const VIRTUAL_NAME = /vethernet|virtualbox|vbox|vmware|hyper-v|wsl|docker|tailscale|zerotier|openvpn|\btap\b|\btun\b/i;
+/** Tipo de interfaz: 'wifi' | 'ethernet' | 'virtual' (VirtualBox/VMware/Hyper-V/VPN: no sirve para otras máquinas de la LAN). */
+export function ifaceKind(name = '', mac = '') {
+  if (VIRTUAL_MAC.test(mac) || VIRTUAL_NAME.test(name)) return 'virtual';
+  if (/wi-?fi|wlan|wireless|inal[aá]mbric/i.test(name)) return 'wifi';
+  return 'ethernet';
+}
+
+/** IPv4 no internas de la máquina, con su interfaz y tipo. Solo las interfaces activas: el cable desconectado no aparece. */
 export function localIPv4() {
   const out = [];
   for (const [iface, addrs] of Object.entries(os.networkInterfaces())) {
-    for (const a of addrs || []) if (a.family === 'IPv4' && !a.internal) out.push({ iface, address: a.address });
+    for (const a of addrs || []) if (a.family === 'IPv4' && !a.internal) out.push({ iface, address: a.address, kind: ifaceKind(iface, a.mac) });
   }
   return out;
+}
+
+export const FIND_URL = 'https://raw.githubusercontent.com/nonoskygt/TCLLM/main/tools/find-tcllm.mjs';
+
+/** Cómo deben conectarse otras máquinas: por NOMBRE (no cambia al pasar de cable a Wi-Fi); las IPs vigentes van solo como dato. */
+export function connectInfo(port = playwright.port) {
+  const hostname = os.hostname();
+  const ips = localIPv4();
+  return {
+    hostname,
+    byName: [`http://${hostname}:${port}/mcp`],
+    byIp: ips.filter(x => x.kind !== 'virtual').map(x => ({ iface: x.iface, kind: x.kind, address: x.address, url: `http://${x.address}:${port}/mcp` })),
+    onlyVMs: ips.filter(x => x.kind === 'virtual').map(x => ({ iface: x.iface, address: x.address })),
+    findScript: FIND_URL,
+    findCommand: `curl -fsSL ${FIND_URL} -o find-tcllm.mjs && node find-tcllm.mjs`,
+  };
 }
 
 const IP_RE = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/;
@@ -81,8 +106,10 @@ export async function status() {
   const c = getConfig().playwright;
   const port = playwright.port;
   const ips = localIPv4();
-  const reachable = [`http://127.0.0.1:${port}/mcp`, ...ips.map(x => `http://${x.address}:${port}/mcp`)];
+  const connect = connectInfo(port);
+  const reachable = [`http://127.0.0.1:${port}/mcp`, ...connect.byName, ...connect.byIp.map(x => x.url)];
   return {
+    connect,
     port, host: c.host, exposed: c.host === '0.0.0.0' || c.host === '::',
     allowAnyHost: !!c.allowAnyHost,
     allowedHosts: c.allowedHosts || [],

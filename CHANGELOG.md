@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.5.0 - 2026-10-01
+
+- **Conexion por nombre de host en vez de IP.** La laptop cambia de IP segun este por cable (`.21`) o por Wi-Fi (`.196`);
+  los agentes de otras maquinas guardaban la IP y dejaban de conectar sin avisar. Ahora la skill, las instrucciones del MCP
+  y el panel (Conexiones -> "Como conectarse") dan `http://<nombre-de-host>:8931/mcp`, y las IPs vigentes se muestran solo como
+  dato, separando cable, Wi-Fi y las de VMs (adaptadores de VirtualBox/VMware/Hyper-V, que no sirven para la LAN).
+  `GET /api/access` trae el bloque `connect`.
+- **`tools/find-tcllm.mjs`**: buscador de un solo archivo, sin dependencias (Node >= 18) para las otras maquinas. Prueba el
+  nombre, la ultima direccion buena (`~/.tcllm-last-host`) y, si hace falta, barre el /24 propio buscando el puerto; reconoce
+  el Playwright MCP con un `GET /mcp` sin sesion (no abre sesion ni toca el navegador). Imprime la URL vigente.
+- `test/find-tcllm.mjs`: 15 comprobaciones (servidor falso en loopback; no toca la red real).
+
 ## 0.4.8 - 2026-09-23
 
 - **Regla para los agentes: sin ventanas nuevas en el navegador compartido.** Un script de verificacion de un agente

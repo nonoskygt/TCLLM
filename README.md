@@ -85,6 +85,16 @@ Para exponerlo a la red, en `playwright`: `"host": "0.0.0.0"`, `"port": 8931`, `
 (el servidor rechaza con 403 cualquier cabecera `Host` que no esté en la lista; `localhost:<port>` y `127.0.0.1:<port>` van siempre).
 TCLLM le habla por `127.0.0.1` (nunca por `localhost`, que en Windows puede resolver a `::1` y encontrarse con otro servidor ajeno).
 
+**Conectarse por nombre, nunca por IP.** Un portátil cambia de IP según esté por cable o por Wi-Fi (y el router puede darle otra
+al reconectar), y el cliente que guardó la IP deja de funcionar sin avisar. Los clientes usan `http://<nombre-de-host>:8931/mcp`
+(el panel → Conexiones muestra el nombre exacto y las IPs vigentes, separando cable, Wi-Fi y las de VMs). Si el nombre no resuelve
+desde esa máquina (hay routers que no registran nombres), `tools/find-tcllm.mjs` —un archivo, sin dependencias, Node ≥ 18— encuentra
+la URL vigente: prueba el nombre, la última dirección que funcionó y, si hace falta, barre el /24 propio buscando el puerto:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/nonoskygt/TCLLM/main/tools/find-tcllm.mjs -o find-tcllm.mjs && node find-tcllm.mjs
+```
+
 ### Quién usa el navegador (registro de llamadas)
 Como el navegador es uno solo y compartido, un agente con una llamada trabada lo traba para todos. TCLLM registra cada
 llamada que pasa por él (REST y MCP del 7777): quién, qué tool, cuánto tardó y cómo terminó. No guarda argumentos.

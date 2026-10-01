@@ -59,7 +59,8 @@ navegador (relanza Playwright: se pierden las pestañas de todos los agentes); b
 Navegador COMPARTIDO entre agentes: trabajá en una pestaña propia (browser_tabs action=new ... action=close) y no toques las de otros.
 PROHIBIDO abrir ventanas o contextos nuevos (browser.newContext, browser.newPage, window.open, storageState en otro contexto dentro de
 browser_run_code_unsafe): cada contexto abre una ventana en el escritorio del usuario. Los logins ya están en el perfil compartido.
-Nada de bucles que abran cosas cada pocos segundos; llamadas cortas.`;
+Nada de bucles que abran cosas cada pocos segundos; llamadas cortas.
+Desde OTRA máquina conectate por el NOMBRE de host de la laptop (http://<nombre>:8931/mcp), nunca por IP: la IP cambia entre cable y Wi-Fi.`;
 
 // ---------- Streamable HTTP (sesiones) ----------
 const sessions = new Map(); // sessionId -> transport

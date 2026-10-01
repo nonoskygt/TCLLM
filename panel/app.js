@@ -275,7 +275,13 @@ function renderAccess() {
   const a = access; if (!a) return;
   $('#access-cards').innerHTML = `
     <div class="card"><h4>Playwright MCP</h4><div class="big">${a.exposed ? 'en la red' : 'solo local'}</div><div class="muted">escucha ${esc(a.host)}:${a.port} · ${a.allowAnyHost ? 'acepta cualquier Host' : a.effectiveHosts.length + ' hosts permitidos'}</div></div>
-    <div class="card"><h4>URLs para conectarse</h4>${a.reachableUrls.map(u => `<div class="row between"><span class="t mono">${esc(u)}</span></div>`).join('')}</div>
+    <div class="card"><h4>Cómo conectarse (por NOMBRE)</h4>
+      ${a.connect.byName.map(u => `<div class="row between"><span class="t mono">${esc(u)}</span><span class="tag ok">usá esta</span></div>`).join('')}
+      <div class="muted">La IP cambia al pasar de cable a Wi-Fi; el nombre no. IPs ahora (no las guardes):</div>
+      ${a.connect.byIp.length ? a.connect.byIp.map(x => `<div class="row between"><span class="t mono">${esc(x.url)}</span><span class="tag">${x.kind === 'wifi' ? 'Wi-Fi' : 'cable'}</span></div>`).join('') : '<div class="muted">sin red activa</div>'}
+      ${a.connect.onlyVMs.length ? `<div class="muted">${a.connect.onlyVMs.map(x => esc(x.address)).join(', ')}: solo para las VMs de esta laptop</div>` : ''}
+      <div class="muted">¿No resuelve el nombre? Desde la otra máquina: <code class="mono">${esc(a.connect.findCommand)}</code> imprime la URL vigente.</div>
+    </div>
     <div class="card"><h4>Firewall (puerto ${a.port})</h4>${renderFwState(a.firewall)}</div>`;
   $('#acc-nets').innerHTML = (a.allowedNetworks.length ? a.allowedNetworks.map(n => chip(n, `accDelNet('${esc(n)}')`, n === 'Any' ? 'any' : '')).join('') : '<span class="muted">sin restricción por red (lo que permita el firewall actual)</span>');
   $('#acc-fw-cmd').textContent = a.firewallCommand;
