@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.5.2 - 2026-10-07
+
+- **Laptop por VPN: el tunel se reconoce como VPN.** Con la laptop fuera de la oficina (hotspot + tunel WireGuard
+  `10.244.0.2`) el panel rotulaba el tunel como "cable", y las VPN de OpenVPN/Tailscale/ZeroTier las trataba como
+  "solo VMs" y las escondia. Nuevo tipo `vpn` (por nombre del adaptador o por no tener MAC): el panel lo muestra como
+  "VPN · fija", porque la IP del tunel la fija la VPN y no cambia con el Wi-Fi ni el cable.
+- La skill explica a los agentes que, si la laptop esta por VPN, usen la IP del tunel y, si no conecta, avisen cual es su
+  red de origen (el firewall solo acepta las redes permitidas en el panel).
+
 ## 0.5.1 - 2026-10-01
 
 - **Skill: plan B para redes sin DNS.** Una VM de la LAN (con dos tarjetas, una en 192.168.2.0/24) confirmo que el nombre

@@ -50,6 +50,8 @@ check('ifaceKind: adaptador host-only de VirtualBox (MAC 0a:00:27) es virtual', 
 check('ifaceKind: Wi-Fi', ifaceKind('Wi-Fi', 'e4:60:17:ec:5c:d9') === 'wifi');
 check('ifaceKind: cable', ifaceKind('Ethernet', '10:7c:61:72:76:cd') === 'ethernet');
 check('ifaceKind: vEthernet (Hyper-V/WSL) es virtual', ifaceKind('vEthernet (WSL)', 'aa:bb:cc:dd:ee:ff') === 'virtual');
+check('ifaceKind: túnel WireGuard (sin MAC) es vpn, no cable', ifaceKind('laptop-danilo', '00:00:00:00:00:00') === 'vpn');
+check('ifaceKind: Tailscale/OpenVPN son vpn, no "solo VMs"', ifaceKind('Tailscale', 'aa:bb:cc:dd:ee:ff') === 'vpn' && ifaceKind('OpenVPN Connect DCO Adapter', 'aa:bb:cc:dd:ee:ff') === 'vpn');
 
 const ci = connectInfo(8931);
 check('connectInfo: la URL por nombre usa el hostname, no una IP', ci.byName[0] === `http://${os.hostname()}:8931/mcp` && !/\d+\.\d+\.\d+\.\d+/.test(ci.byName[0]), ci.byName[0]);

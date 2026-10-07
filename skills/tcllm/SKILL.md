@@ -22,8 +22,9 @@ TCLLM corre en `http://127.0.0.1:7777` (panel: `http://127.0.0.1:7777/`). Úsalo
 - **Nada de bucles** que abran o recarguen cosas cada pocos segundos. Llamadas cortas (< 30 s); si hace falta esperar, esperá dentro de una sola llamada.
 - Identificate por REST con la cabecera `X-TCLLM-Client: <tu-nombre>` (así el usuario ve qué agente usa cada pestaña en el panel).
 
-## Conectarse desde OTRA máquina de la red: por NOMBRE, nunca por IP
+## Conectarse desde OTRA máquina de la red: por NOMBRE (o la IP de la VPN), nunca por la IP del cable o del Wi-Fi
 La laptop cambia de IP según esté por cable o por Wi-Fi (y el router le da otra al reconectar). Una IP guardada en una config, en `/etc/hosts` o en un `socat` deja de funcionar sin avisar.
+- **Si la laptop está conectada por VPN** (WireGuard, OpenVPN, Tailscale...): usá la IP del túnel, la que el panel (Conexiones) marca como "VPN · fija". Esa SÍ es estable porque la fija la configuración de la VPN, no el Wi-Fi ni el cable. Tu máquina necesita ruta hacia esa red, y el firewall de la laptop solo acepta las redes de origen que el usuario permitió en el panel: si no conecta, avisale cuál es tu red de origen en vez de insistir.
 - **URL del navegador compartido**: `http://NonoLaptop:8931/mcp` (el nombre de host de la laptop). No escribas ninguna IP.
 - **Si tu red no resuelve el nombre** (hay redes sin DNS ni mDNS): no fijes UNA IP. La laptop tiene dos posibles, cable y Wi-Fi, y solo una está activa a la vez: probá las dos y usá la que responda (`curl -s -m 3 -o /dev/null -w '%{http_code}' http://<IP>:8931/mcp` da 400 cuando es el MCP). Las IPs vigentes están en el panel, Conexiones. Que tu túnel o `socat` pruebe ambas en orden en vez de apuntar a una sola.
 - Si la conexión queda "failed" y preferís no probar a mano: `curl -fsSL https://raw.githubusercontent.com/nonoskygt/TCLLM/main/tools/find-tcllm.mjs -o find-tcllm.mjs && node find-tcllm.mjs` imprime la URL vigente (prueba el nombre, la última dirección buena y, si hace falta, barre tu red local). Es opcional: revisalo antes de correrlo.

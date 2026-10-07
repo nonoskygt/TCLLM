@@ -14,10 +14,12 @@ const FW_SCRIPT = path.join(PKG_ROOT, 'ps', 'firewall.ps1');
 const RULE = (port) => `TCLLM Playwright (${port})`;
 
 const VIRTUAL_MAC = /^(0a|08):00:27|^00:50:56|^00:0c:29|^00:15:5d/i;   // VirtualBox, VMware, Hyper-V
-const VIRTUAL_NAME = /vethernet|virtualbox|vbox|vmware|hyper-v|wsl|docker|tailscale|zerotier|openvpn|\btap\b|\btun\b/i;
-/** Tipo de interfaz: 'wifi' | 'ethernet' | 'virtual' (VirtualBox/VMware/Hyper-V/VPN: no sirve para otras máquinas de la LAN). */
+const VIRTUAL_NAME = /vethernet|virtualbox|vbox|vmware|hyper-v|wsl|docker/i;
+const VPN_NAME = /openvpn|wireguard|tailscale|zerotier|wintun|\bvpn\b|\btap\b|\btun\b/i;
+/** Tipo de interfaz: 'wifi' | 'ethernet' | 'vpn' (túnel: su IP no cambia con el Wi-Fi o el cable) | 'virtual' (VirtualBox/VMware/Hyper-V: no sirve para otras máquinas). */
 export function ifaceKind(name = '', mac = '') {
   if (VIRTUAL_MAC.test(mac) || VIRTUAL_NAME.test(name)) return 'virtual';
+  if (VPN_NAME.test(name) || /^(00:){5}00$/.test(mac)) return 'vpn';   // los túneles (WireGuard, Wintun...) no tienen MAC
   if (/wi-?fi|wlan|wireless|inal[aá]mbric/i.test(name)) return 'wifi';
   return 'ethernet';
 }

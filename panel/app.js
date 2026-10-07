@@ -278,7 +278,7 @@ function renderAccess() {
     <div class="card"><h4>Cómo conectarse (por NOMBRE)</h4>
       ${a.connect.byName.map(u => `<div class="row between"><span class="t mono">${esc(u)}</span><span class="tag ok">usá esta</span></div>`).join('')}
       <div class="muted">La IP cambia al pasar de cable a Wi-Fi; el nombre no. IPs ahora (no las guardes):</div>
-      ${a.connect.byIp.length ? a.connect.byIp.map(x => `<div class="row between"><span class="t mono">${esc(x.url)}</span><span class="tag">${x.kind === 'wifi' ? 'Wi-Fi' : 'cable'}</span></div>`).join('') : '<div class="muted">sin red activa</div>'}
+      ${a.connect.byIp.length ? a.connect.byIp.map(x => `<div class="row between"><span class="t mono">${esc(x.url)}</span><span class="tag ${x.kind === 'vpn' ? 'ok' : ''}">${x.kind === 'wifi' ? 'Wi-Fi' : x.kind === 'vpn' ? 'VPN · fija' : 'cable'}</span></div>`).join('') : '<div class="muted">sin red activa</div>'}
       ${a.connect.onlyVMs.length ? `<div class="muted">${a.connect.onlyVMs.map(x => esc(x.address)).join(', ')}: solo para las VMs de esta laptop</div>` : ''}
       <div class="muted">¿No resuelve el nombre? Desde la otra máquina: <code class="mono">${esc(a.connect.findCommand)}</code> imprime la URL vigente.</div>
     </div>

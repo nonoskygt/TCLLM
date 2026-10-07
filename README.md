@@ -95,6 +95,12 @@ la URL vigente: prueba el nombre, la última dirección que funcionó y, si hace
 curl -fsSL https://raw.githubusercontent.com/nonoskygt/TCLLM/main/tools/find-tcllm.mjs -o find-tcllm.mjs && node find-tcllm.mjs
 ```
 
+**Laptop fuera de la oficina, por VPN.** La IP del túnel (WireGuard, OpenVPN, Tailscale...) la fija la VPN y no cambia con el
+Wi-Fi ni el cable: ahí sí conviene usarla (`http://<IP-del-túnel>:8931/mcp`; el panel la marca "VPN · fija"). Hacen falta dos
+cosas: que el servidor tenga ruta hacia la red del túnel y que el firewall de la laptop acepte la **red de origen** de quien
+conecta (Conexiones → Redes permitidas → "Aplicar al firewall", pide UAC en la laptop). Qué IP de origen llega depende de la
+VPN: si el concentrador reenvía sin NAT, la IP real del servidor; con NAT, la del concentrador dentro del túnel.
+
 ### Quién usa el navegador (registro de llamadas)
 Como el navegador es uno solo y compartido, un agente con una llamada trabada lo traba para todos. TCLLM registra cada
 llamada que pasa por él (REST y MCP del 7777): quién, qué tool, cuánto tardó y cómo terminó. No guarda argumentos.
