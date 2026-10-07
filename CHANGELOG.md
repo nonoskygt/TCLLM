@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.5.3 - 2026-10-07
+
+- **"Aplicar al firewall" ya no da falso error.** Tras aceptar el UAC, el proceso elevado tardo mas de los ~6 s que TCLLM
+  esperaba su resultado: la regla SI se aplico (`ok:true`, tres redes) pero la API respondio 500 "no se recibio el
+  resultado del proceso elevado" y no registro el exito. Ahora espera hasta ~30 s.
+
 ## 0.5.2 - 2026-10-07
 
 - **Laptop por VPN: el tunel se reconoce como VPN.** Con la laptop fuera de la oficina (hotspot + tunel WireGuard

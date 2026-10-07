@@ -177,8 +177,8 @@ export async function applyFirewall() {
   });
   // Start-Process -Verb RunAs -Wait no siempre bloquea hasta que el hijo elevado vacía su archivo: esperamos el resultado.
   let res = null;
-  for (let i = 0; i < 40; i++) {   // hasta ~6 s tras salir el proceso externo
-    try { res = JSON.parse(fs.readFileSync(resultFile, 'utf8')); break; } catch { await new Promise(r => setTimeout(r, 150)); }
+  for (let i = 0; i < 100; i++) {   // hasta ~30 s: tras aceptar el UAC, arrancar PowerShell elevado y crear la regla puede tardar más de 6 s
+    try { res = JSON.parse(fs.readFileSync(resultFile, 'utf8')); break; } catch { await new Promise(r => setTimeout(r, 300)); }
   }
   if (!res) throw new Error(exitCode === 0 ? 'no se recibió el resultado del proceso elevado (¿UAC cancelado?)' : `elevación fallida (código ${exitCode})`);
   if (!res.ok) throw new Error(res.error || 'la regla de firewall no se aplicó (revisa permisos)');
